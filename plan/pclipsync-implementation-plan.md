@@ -156,7 +156,7 @@ This plan describes the complete implementation of pclipsync, a tool that synchr
 | TASK-5400 | Implement async function connect_to_server(socket_path: str) -> tuple[StreamReader, StreamWriter]: uses asyncio.open_unix_connection to open connection to Unix domain socket, returns reader/writer pair; raises ConnectionError on failure | x | 2025-12-28 |
 | TASK-5500 | Implement async function run_client_with_retry(socket_path: str, state: ClipboardState) -> None: wraps connection logic with tenacity retry decorator configured for: wait_exponential with initial=INITIAL_WAIT, max=MAX_WAIT, multiplier=WAIT_MULTIPLIER; retry=retry_if_exception_type for connection-related exceptions; stop=stop_never for unlimited retries; calls state.hash_state.clear() on each reconnect for clean slate, calls connect_to_server to obtain reader/writer pair, then calls run_sync_loop from sync.py for bidirectional clipboard sync; logs connection failures at WARNING level, successful connection at DEBUG level | x | 2025-12-28 |
 | TASK-5600 | Implement async function run_client(socket_path: str) -> None: calls validate_display from clipboard.py to get X11 Display, creates hidden window via create_hidden_window from clipboard.py, registers for clipboard events via register_xfixes_events from clipboard_events.py, initializes ClipboardState with display, window, fresh HashState, and empty current_content, calls run_client_with_retry passing ClipboardState; this is the main client entry point | x | 2025-12-28 |
-| TASK-5700 | Add mocked tests in tests/test_client.py: test connection handling, test retry logic triggers on disconnect, test hash state cleared on reconnect | x | 2025-12-28 |
+| TASK-5700 | Add mocked tests in tests/test_client_retry.py: test connection handling, test retry logic triggers on disconnect, test hash state cleared on reconnect | x | 2025-12-28 |
 
 ### Implementation Phase 8: CLI and Entry Points
 
@@ -249,7 +249,9 @@ This plan describes the complete implementation of pclipsync, a tool that synchr
 - **FILE-1100**: src/pclipsync/server.py - Server mode entry point (run_server)
 - **FILE-1110**: src/pclipsync/server_socket.py - Socket utilities (check_socket_state, print_startup_message, cleanup_socket)
 - **FILE-1120**: src/pclipsync/server_handler.py - Client connection handler (handle_client)
-- **FILE-1200**: src/pclipsync/client.py - Client mode implementation, tenacity retry logic
+- **FILE-1200**: src/pclipsync/client.py - Client mode entry point (run_client)
+- **FILE-1210**: src/pclipsync/client_constants.py - Retry configuration constants
+- **FILE-1220**: src/pclipsync/client_retry.py - Connection and tenacity retry logic
 - **FILE-1300**: tests/conftest.py - Pytest fixtures and configuration
 - **FILE-1400**: tests/test_protocol.py - Unit tests for netstring encoding/decoding
 - **FILE-1500**: tests/test_hashing.py - Unit tests for hash computation and HashState
@@ -257,7 +259,7 @@ This plan describes the complete implementation of pclipsync, a tool that synchr
 - **FILE-1700**: tests/test_sync.py - Tests for sync logic
 - **FILE-1800**: tests/test_server_socket.py - Tests for server socket utilities
 - **FILE-1810**: tests/test_server_handler.py - Tests for server client handler
-- **FILE-1900**: tests/test_client.py - Mocked tests for client mode
+- **FILE-1900**: tests/test_client_retry.py - Mocked tests for client connection and retry
 - **FILE-2000**: tests/test_main.py - Tests for CLI argument handling
 - **FILE-2100**: tests/test_integration.py - Integration tests requiring X11
 - **FILE-2200**: README.md - User documentation
