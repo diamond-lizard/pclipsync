@@ -138,12 +138,12 @@ This plan describes the complete implementation of pclipsync, a tool that synchr
 
 | Task      | Description | Completed | Date |
 | --------- | ----------- | --------- | ---- |
-| TASK-4600 | Create src/pclipsync/server.py with module docstring explaining server mode operation | | |
-| TASK-4700 | Implement function check_socket_state(socket_path: str) -> None: if socket file exists, attempt connection to check if active; if connection refused (stale socket), unlink and proceed; if connection succeeds (active server), raise SystemExit with error "Socket already in use by active server"; any other error, raise SystemExit with descriptive error | | |
-| TASK-4800 | Implement function print_startup_message(socket_path: str) -> None: prints to stderr "Listening on <socket_path>" followed by "Example SSH forward: ssh -R REMOTE_SOCKET_PATH:<socket_path> user@host" to confirm socket ready and show command template | | |
-| TASK-4900 | Implement function cleanup_socket(socket_path: str) -> None: that unlinks socket file; does not register handlers itself (main.py handles signal registration and calls this function) | | |
-| TASK-5000 | Implement async function run_server(socket_path: str) -> None: calls validate_display from clipboard.py to get X11 Display, creates hidden window via create_hidden_window from clipboard.py, registers for clipboard events via register_xfixes_events from clipboard_events.py, initializes ClipboardState with display, window, fresh HashState, and empty current_content, checks socket state via check_socket_state, creates Unix domain socket, calls print_startup_message, uses asyncio.start_unix_server to accept exactly one client connection (obtaining reader/writer pair), then runs run_sync_loop from sync.py, exits with code 0 on client disconnect; logs connection state changes at DEBUG level | | |
-| TASK-5100 | Add mocked tests in tests/test_server.py: test socket state checking (stale vs active), test client connection handling, test proper cleanup on disconnect | | |
+| TASK-4600 | Create src/pclipsync/server.py with module docstring explaining server mode operation | Yes | 2025-12-28 |
+| TASK-4700 | Implement function check_socket_state(socket_path: str) -> None: if socket file exists, attempt connection to check if active; if connection refused (stale socket), unlink and proceed; if connection succeeds (active server), raise SystemExit with error "Socket already in use by active server"; any other error, raise SystemExit with descriptive error | Yes | 2025-12-28 |
+| TASK-4800 | Implement function print_startup_message(socket_path: str) -> None: prints to stderr "Listening on <socket_path>" followed by "Example SSH forward: ssh -R REMOTE_SOCKET_PATH:<socket_path> user@host" to confirm socket ready and show command template | Yes | 2025-12-28 |
+| TASK-4900 | Implement function cleanup_socket(socket_path: str) -> None: that unlinks socket file; does not register handlers itself (main.py handles signal registration and calls this function) | Yes | 2025-12-28 |
+| TASK-5000 | Implement async function run_server(socket_path: str) -> None: calls validate_display from clipboard.py to get X11 Display, creates hidden window via create_hidden_window from clipboard.py, registers for clipboard events via register_xfixes_events from clipboard_events.py, initializes ClipboardState with display, window, fresh HashState, and empty current_content, checks socket state via check_socket_state, creates Unix domain socket, calls print_startup_message, uses asyncio.start_unix_server to accept exactly one client connection (obtaining reader/writer pair), then runs run_sync_loop from sync.py, exits with code 0 on client disconnect; logs connection state changes at DEBUG level | Yes | 2025-12-28 |
+| TASK-5100 | Add mocked tests in tests/test_server_socket.py and tests/test_server_handler.py: test socket state checking (stale vs active), test client connection handling, test proper cleanup on disconnect | Yes | 2025-12-28 |
 
 ### Implementation Phase 7: Client Implementation
 
@@ -169,7 +169,7 @@ This plan describes the complete implementation of pclipsync, a tool that synchr
 | TASK-6000 | Implement function configure_logging(verbose: bool) -> None: if verbose, set logging level to DEBUG showing connection state, clipboard events, send/receive ops, skipped ops; otherwise set to WARNING (quiet default); errors always to stderr regardless of verbosity | | |
 | TASK-6100 | Implement main entry point function that: validates mutually exclusive mode flags (exit code 2 on usage error), calls configure_logging, imports heavy modules (python-xlib) AFTER argument validation for fast --help, uses asyncio.run() to call run_server from server.py or run_client from client.py based on mode | | |
 | TASK-6200 | Create src/pclipsync/__main__.py with minimal code: imports main from main.py and calls it; this enables python -m pclipsync invocation | | |
-| TASK-6300 | Implement signal handling in main: catch SIGINT and SIGTERM, close socket connections cleanly, call cleanup_socket from server.py in server mode, exit with code 0 on signal, suppress KeyboardInterrupt traceback | | |
+| TASK-6300 | Implement signal handling in main: catch SIGINT and SIGTERM, close socket connections cleanly, call cleanup_socket from server_socket.py in server mode, exit with code 0 on signal, suppress KeyboardInterrupt traceback | | |
 | TASK-6400 | Create bin/pclipsync shell wrapper script using POSIX sh (not bash): resolve symlinks using realpath to find actual script location, navigate up from bin/ to project root (supports ~/bin/pclipsync -> project/bin/pclipsync symlink), check if .venv/ exists and exit with error directing user to run "uv sync" if missing, invoke .venv/bin/python -m pclipsync with all arguments passed through ("$@") | | |
 | TASK-6500 | Make bin/pclipsync executable with chmod +x | | |
 | TASK-6600 | Add tests in tests/test_main.py: test CLI argument validation (mutually exclusive modes, required socket), test exit codes (0 clean, 1 error, 2 usage) | | |
@@ -246,14 +246,17 @@ This plan describes the complete implementation of pclipsync, a tool that synchr
 - **FILE-1010**: src/pclipsync/sync_state.py - ClipboardState dataclass
 - **FILE-1020**: src/pclipsync/sync_handlers.py - handle_clipboard_change, handle_incoming_content
 - **FILE-1030**: src/pclipsync/sync_loop.py - run_sync_loop, asyncio event loop integration
-- **FILE-1100**: src/pclipsync/server.py - Server mode implementation, socket handling
+- **FILE-1100**: src/pclipsync/server.py - Server mode entry point (run_server)
+- **FILE-1110**: src/pclipsync/server_socket.py - Socket utilities (check_socket_state, print_startup_message, cleanup_socket)
+- **FILE-1120**: src/pclipsync/server_handler.py - Client connection handler (handle_client)
 - **FILE-1200**: src/pclipsync/client.py - Client mode implementation, tenacity retry logic
 - **FILE-1300**: tests/conftest.py - Pytest fixtures and configuration
 - **FILE-1400**: tests/test_protocol.py - Unit tests for netstring encoding/decoding
 - **FILE-1500**: tests/test_hashing.py - Unit tests for hash computation and HashState
 - **FILE-1600**: tests/test_clipboard.py - Mocked tests for clipboard and clipboard_io operations
 - **FILE-1700**: tests/test_sync.py - Tests for sync logic
-- **FILE-1800**: tests/test_server.py - Mocked tests for server mode
+- **FILE-1800**: tests/test_server_socket.py - Tests for server socket utilities
+- **FILE-1810**: tests/test_server_handler.py - Tests for server client handler
 - **FILE-1900**: tests/test_client.py - Mocked tests for client mode
 - **FILE-2000**: tests/test_main.py - Tests for CLI argument handling
 - **FILE-2100**: tests/test_integration.py - Integration tests requiring X11
