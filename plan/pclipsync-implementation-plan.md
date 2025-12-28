@@ -92,14 +92,14 @@ This plan describes the complete implementation of pclipsync, a tool that synchr
 
 | Task      | Description | Completed | Date |
 | --------- | ----------- | --------- | ---- |
-| TASK-2100 | Create src/pclipsync/hashing.py with module docstring explaining loop prevention via hash comparison | | |
-| TASK-2200 | Implement function compute_hash(data: bytes) -> str: returns SHA-256 hex digest of raw clipboard bytes using hashlib.sha256 | | |
-| TASK-2300 | Define dataclass HashState with fields: last_sent_hash (str | None) for hash of last sent content, last_received_hash (str | None) for hash of last received content; both initialize to None | | |
-| TASK-2400 | Implement method HashState.should_send(current_hash: str) -> bool: returns False if current_hash equals last_sent_hash (duplicate) or last_received_hash (echo), True otherwise | | |
-| TASK-2500 | Implement method HashState.record_sent(hash_value: str) -> None: updates last_sent_hash after successful send (including flush) | | |
-| TASK-2600 | Implement method HashState.record_received(hash_value: str) -> None: updates last_received_hash; must be called BEFORE setting clipboard to prevent echo | | |
-| TASK-2700 | Implement method HashState.clear() -> None: resets both hashes to None; used on client reconnect for clean slate | | |
-| TASK-2800 | Add unit tests in tests/test_hashing.py: test compute_hash produces consistent SHA-256 hex output, test HashState.should_send returns False for duplicate/echo and True otherwise, test clear() resets state | | |
+| TASK-2100 | Create src/pclipsync/hashing.py with module docstring explaining loop prevention via hash comparison | Yes | 2025-12-28 |
+| TASK-2200 | Implement function compute_hash(data: bytes) -> str: returns SHA-256 hex digest of raw clipboard bytes using hashlib.sha256 | Yes | 2025-12-28 |
+| TASK-2300 | Define dataclass HashState with fields: last_sent_hash (str | None) for hash of last sent content, last_received_hash (str | None) for hash of last received content; both initialize to None | Yes | 2025-12-28 |
+| TASK-2400 | Implement method HashState.should_send(current_hash: str) -> bool: returns False if current_hash equals last_sent_hash (duplicate) or last_received_hash (echo), True otherwise | Yes | 2025-12-28 |
+| TASK-2500 | Implement method HashState.record_sent(hash_value: str) -> None: updates last_sent_hash after successful send (including flush) | Yes | 2025-12-28 |
+| TASK-2600 | Implement method HashState.record_received(hash_value: str) -> None: updates last_received_hash; must be called BEFORE setting clipboard to prevent echo | Yes | 2025-12-28 |
+| TASK-2700 | Implement method HashState.clear() -> None: resets both hashes to None; used on client reconnect for clean slate | Yes | 2025-12-28 |
+| TASK-2800 | Add unit tests in tests/test_hashing.py: test compute_hash produces consistent SHA-256 hex output, test HashState.should_send returns False for duplicate/echo and True otherwise, test clear() resets state | Yes | 2025-12-28 |
 
 ### Implementation Phase 4: Clipboard Monitoring
 
