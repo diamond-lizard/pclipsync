@@ -77,14 +77,14 @@ This plan describes the complete implementation of pclipsync, a tool that synchr
 
 | Task      | Description | Completed | Date |
 | --------- | ----------- | --------- | ---- |
-| TASK-1300 | Create src/pclipsync/protocol.py with module docstring explaining netstring framing format | | |
-| TASK-1400 | Define module-level constant MAX_CONTENT_SIZE: int = 10485760 (10 MB) with explanatory comment | | |
-| TASK-1500 | Define module-level constant MAX_LENGTH_DIGITS: int = 8 (maximum digits in length field for 10 MB max) with explanatory comment | | |
-| TASK-1600 | Implement function encode_netstring(data: bytes) -> bytes: takes raw clipboard bytes, returns netstring-encoded bytes in format "<length>:<content>," where length is ASCII decimal | | |
-| TASK-1700 | Implement function validate_content_size(data: bytes) -> bool: returns True if len(data) <= MAX_CONTENT_SIZE, False otherwise; used before encoding to check limits | | |
-| TASK-1800 | Create custom exception class ProtocolError(Exception) for protocol-level errors (invalid length, missing comma, size exceeded, connection closed mid-message) | | |
-| TASK-1900 | Implement async function read_netstring(reader: asyncio.StreamReader) -> bytes: reads length field (up to MAX_LENGTH_DIGITS ASCII digits), validates colon separator, reads content bytes, validates comma terminator, raises ProtocolError on any format violation or if length exceeds MAX_CONTENT_SIZE or connection closed mid-message (EOF) | | |
-| TASK-2000 | Add unit tests in tests/test_protocol.py: test encode_netstring produces correct format (e.g., b"12:Hello world!," for 12 bytes), test round-trip encode/decode, test ProtocolError raised for invalid inputs (missing colon, missing comma, length mismatch, oversized content, non-digit length field) | | |
+| TASK-1300 | Create src/pclipsync/protocol.py with module docstring explaining netstring framing format | Yes | 2025-12-28 |
+| TASK-1400 | Define module-level constant MAX_CONTENT_SIZE: int = 10485760 (10 MB) with explanatory comment | Yes | 2025-12-28 |
+| TASK-1500 | Define module-level constant MAX_LENGTH_DIGITS: int = 8 (maximum digits in length field for 10 MB max) with explanatory comment | Yes | 2025-12-28 |
+| TASK-1600 | Implement function encode_netstring(data: bytes) -> bytes: takes raw clipboard bytes, returns netstring-encoded bytes in format "<length>:<content>," where length is ASCII decimal | Yes | 2025-12-28 |
+| TASK-1700 | Implement function validate_content_size(data: bytes) -> bool: returns True if len(data) <= MAX_CONTENT_SIZE, False otherwise; used before encoding to check limits | Yes | 2025-12-28 |
+| TASK-1800 | Create custom exception class ProtocolError(Exception) for protocol-level errors (invalid length, missing comma, size exceeded, connection closed mid-message) | Yes | 2025-12-28 |
+| TASK-1900 | Implement async function read_netstring(reader: asyncio.StreamReader) -> bytes: reads length field (up to MAX_LENGTH_DIGITS ASCII digits), validates colon separator, reads content bytes, validates comma terminator, raises ProtocolError on any format violation or if length exceeds MAX_CONTENT_SIZE or connection closed mid-message (EOF) | Yes | 2025-12-28 |
+| TASK-2000 | Add unit tests in tests/test_protocol.py: test encode_netstring produces correct format (e.g., b"12:Hello world!," for 12 bytes), test round-trip encode/decode, test ProtocolError raised for invalid inputs (missing colon, missing comma, length mismatch, oversized content, non-digit length field) | Yes | 2025-12-28 |
 
 ### Implementation Phase 3: Hash Utilities
 
