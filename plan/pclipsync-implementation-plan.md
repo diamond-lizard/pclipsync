@@ -54,20 +54,22 @@ This plan describes the complete implementation of pclipsync, a tool that synchr
 
 - GOAL-0100: Establish project structure, build configuration, and development tooling
 
+> **NOTE**: Do not edit pyproject.toml by hand when a `uv` command can make the change. Use `uv add` for runtime dependencies, `uv add --dev` for development dependencies, and `uv sync` to install.
+
 | Task      | Description | Completed | Date |
 | --------- | ----------- | --------- | ---- |
-| TASK-0100 | Create pyproject.toml with project metadata: name "pclipsync", requires-python ">=3.12", description for X11 clipboard sync over SSH | | |
-| TASK-0200 | Add runtime dependencies to pyproject.toml: python-xlib (X11 clipboard via XFixes), click (CLI handling), tenacity (retry with exponential backoff) | | |
-| TASK-0300 | Add development dependencies to pyproject.toml: mypy (strict mode), ruff (linting/formatting), pytest, pytest-asyncio, pytest-cov, pytest-mock | | |
-| TASK-0400 | Create directory structure: bin/, src/pclipsync/, tests/ | | |
+| TASK-0100 | Create pyproject.toml with project metadata: name "pclipsync", requires-python ">=3.12", description for X11 clipboard sync over SSH | Yes | 2025-12-28 |
+| TASK-0200 | Run "uv add" to add runtime dependencies: python-xlib (X11 clipboard via XFixes), click (CLI handling), tenacity (retry with exponential backoff) | | |
+| TASK-0300 | Run "uv add --dev" to add development dependencies: mypy (strict mode), ruff (linting/formatting), pytest, pytest-asyncio, pytest-cov, pytest-mock | | |
+| TASK-0400 | Create directory structure: src/pclipsync/, tests/ (bin/ already exists) | | |
 | TASK-0500 | Create src/pclipsync/__init__.py as empty package marker | | |
-| TASK-0600 | Create Makefile with default target that lists available targets using @echo for each target description | | |
-| TASK-0700 | Add Makefile target "ruff": runs "uv run ruff check src/" to lint source code | | |
-| TASK-0800 | Add Makefile target "ruff-fix": runs "uv run ruff check --fix src/" for auto-fix | | |
-| TASK-0900 | Add Makefile target "mypy": runs "uv run mypy src/" for type checking | | |
-| TASK-1000 | Add Makefile target "test": runs ruff followed by mypy (lint then type check) | | |
-| TASK-1100 | Run "uv sync" to create .venv/ and install dependencies | | |
-| TASK-1200 | Configure pyproject.toml for editable install so python -m pclipsync works | | |
+| TASK-0600 | Create Makefile with default target that lists available targets using @echo for each target description | Yes | 2025-12-28 |
+| TASK-0700 | Add Makefile target "ruff": runs "uv run ruff check src/" to lint source code | Yes | 2025-12-28 |
+| TASK-0800 | Add Makefile target "ruff-fix": runs "uv run ruff check --fix src/" for auto-fix | Yes | 2025-12-28 |
+| TASK-0900 | Add Makefile target "mypy": runs "uv run mypy src/" for type checking | Yes | 2025-12-28 |
+| TASK-1000 | Add Makefile target "test": runs ruff followed by mypy (lint then type check) | Yes | 2025-12-28 |
+| TASK-1100 | Run "uv sync" to create .venv/ and install dependencies | Yes | 2025-12-28 |
+| TASK-1200 | Use "uv add --dev -e ." to configure editable install so python -m pclipsync works | | |
 
 ### Implementation Phase 2: Protocol Layer
 
