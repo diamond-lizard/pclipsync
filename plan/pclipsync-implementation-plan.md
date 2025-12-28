@@ -59,7 +59,7 @@ This plan describes the complete implementation of pclipsync, a tool that synchr
 | Task      | Description | Completed | Date |
 | --------- | ----------- | --------- | ---- |
 | TASK-0100 | Create pyproject.toml with project metadata: name "pclipsync", requires-python ">=3.12", description for X11 clipboard sync over SSH | Yes | 2025-12-28 |
-| TASK-0200 | Run "uv add" to add runtime dependencies: python-xlib (X11 clipboard via XFixes), click (CLI handling), tenacity (retry with exponential backoff) | | |
+| TASK-0200 | Run "uv add" to add runtime dependencies: python-xlib (X11 clipboard via XFixes), click (CLI handling), tenacity (retry with exponential backoff) | Yes | 2025-12-28 |
 | TASK-0300 | Run "uv add --dev" to add development dependencies: mypy (strict mode), ruff (linting/formatting), pytest, pytest-asyncio, pytest-cov, pytest-mock | | |
 | TASK-0400 | Create directory structure: src/pclipsync/, tests/ (bin/ already exists) | | |
 | TASK-0500 | Create src/pclipsync/__init__.py as empty package marker | | |
