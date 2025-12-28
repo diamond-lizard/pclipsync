@@ -60,16 +60,16 @@ This plan describes the complete implementation of pclipsync, a tool that synchr
 | --------- | ----------- | --------- | ---- |
 | TASK-0100 | Create pyproject.toml with project metadata: name "pclipsync", requires-python ">=3.12", description for X11 clipboard sync over SSH | Yes | 2025-12-28 |
 | TASK-0200 | Run "uv add" to add runtime dependencies: python-xlib (X11 clipboard via XFixes), click (CLI handling), tenacity (retry with exponential backoff) | Yes | 2025-12-28 |
-| TASK-0300 | Run "uv add --dev" to add development dependencies: mypy (strict mode), ruff (linting/formatting), pytest, pytest-asyncio, pytest-cov, pytest-mock | | |
-| TASK-0400 | Create directory structure: src/pclipsync/, tests/ (bin/ already exists) | | |
-| TASK-0500 | Create src/pclipsync/__init__.py as empty package marker | | |
+| TASK-0300 | Run "uv add --dev" to add development dependencies: mypy (strict mode), ruff (linting/formatting), pytest, pytest-asyncio, pytest-cov, pytest-mock | Yes | 2025-12-28 |
+| TASK-0400 | Create directory structure: src/pclipsync/, tests/ (bin/ already exists) | Yes | 2025-12-28 |
+| TASK-0500 | Create src/pclipsync/__init__.py as empty package marker | Yes | 2025-12-28 |
 | TASK-0600 | Create Makefile with default target that lists available targets using @echo for each target description | Yes | 2025-12-28 |
 | TASK-0700 | Add Makefile target "ruff": runs "uv run ruff check src/" to lint source code | Yes | 2025-12-28 |
 | TASK-0800 | Add Makefile target "ruff-fix": runs "uv run ruff check --fix src/" for auto-fix | Yes | 2025-12-28 |
 | TASK-0900 | Add Makefile target "mypy": runs "uv run mypy src/" for type checking | Yes | 2025-12-28 |
 | TASK-1000 | Add Makefile target "test": runs ruff followed by mypy (lint then type check) | Yes | 2025-12-28 |
 | TASK-1100 | Run "uv sync" to create .venv/ and install dependencies | Yes | 2025-12-28 |
-| TASK-1200 | Use "uv add --dev -e ." to configure editable install so python -m pclipsync works | | |
+| TASK-1200 | Add [build-system] and [tool.hatch] sections to pyproject.toml for src/ layout so python -m pclipsync works | Yes | 2025-12-28 |
 
 ### Implementation Phase 2: Protocol Layer
 
