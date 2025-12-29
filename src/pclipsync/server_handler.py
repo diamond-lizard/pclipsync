@@ -20,7 +20,7 @@ async def handle_client(
     state: ClipboardState,
     reader: asyncio.StreamReader,
     writer: asyncio.StreamWriter,
-    server: asyncio.Server,
+    shutdown_event: asyncio.Event,
 ) -> None:
     """Handle a single client connection.
 
@@ -32,7 +32,7 @@ async def handle_client(
         state: The clipboard synchronization state.
         reader: The asyncio StreamReader for the socket connection.
         writer: The asyncio StreamWriter for the socket connection.
-        server: The asyncio Server to close on client disconnect.
+        shutdown_event: Event to set when client disconnects.
     """
     import logging
 
@@ -49,4 +49,4 @@ async def handle_client(
     finally:
         writer.close()
         await writer.wait_closed()
-        server.close()
+        shutdown_event.set()

@@ -58,12 +58,12 @@ async def run_server(socket_path: str) -> None:
     print_startup_message(socket_path)
 
     # Start server and accept one client
-    server_holder: list[asyncio.Server] = []
+    shutdown_event = asyncio.Event()
     server = await asyncio.start_unix_server(
-        lambda r, w: handle_client(state, r, w, server_holder[0]),
+        lambda r, w: handle_client(state, r, w, shutdown_event),
         path=socket_path,
     )
-    server_holder.append(server)
 
     async with server:
-        await server.serve_forever()
+        await shutdown_event.wait()
+        server.close()
