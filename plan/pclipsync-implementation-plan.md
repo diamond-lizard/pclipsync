@@ -236,6 +236,8 @@ This plan describes the complete implementation of pclipsync, a tool that synchr
 - **FILE-0400**: src/pclipsync/__init__.py - Package marker (empty)
 - **FILE-0500**: src/pclipsync/__main__.py - Entry point for python -m pclipsync
 - **FILE-0600**: src/pclipsync/main.py - CLI handling with click, signal handling, logging configuration
+- **FILE-0610**: src/pclipsync/main_options.py - MutuallyExclusiveOption class for click
+- **FILE-0620**: src/pclipsync/main_logging.py - Logging configuration (configure_logging)
 - **FILE-0700**: src/pclipsync/protocol.py - Netstring encoding/decoding, ProtocolError exception
 - **FILE-0800**: src/pclipsync/hashing.py - SHA-256 hashing, HashState dataclass for loop prevention
 - **FILE-0900**: src/pclipsync/clipboard.py - X11 core: display validation, window creation, display FD access
