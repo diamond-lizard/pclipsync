@@ -184,7 +184,7 @@ This plan describes the complete implementation of pclipsync, a tool that synchr
 | TASK-6800 | Define pytest marker "integration" in pyproject.toml for tests requiring X11 display to allow selective execution with pytest -m integration or pytest -m "not integration" | x | 2025-12-28 |
 | TASK-6900 | Configure pytest in pyproject.toml: add [tool.pytest.ini_options] section with markers = ["integration: marks tests as integration tests (require X11)"] to suppress unknown marker warnings | x | 2025-12-28 |
 | TASK-7000 | Configure pytest-asyncio in pyproject.toml: add asyncio_mode = "auto" to [tool.pytest.ini_options] section for automatic async test handling | x | 2025-12-28 |
-| TASK-7100 | Create tests/test_integration.py with @pytest.mark.integration: test full server-client round-trip clipboard sync (content sent from server appears on client clipboard and vice versa) | x | 2025-12-28 |
+| TASK-7100 | Create tests/test_integration_sync.py with @pytest.mark.integration: test full server-client round-trip clipboard sync (content sent from server appears on client clipboard and vice versa) | x | 2025-12-28 |
 | TASK-7200 | Add integration test: verify loop prevention (setting clipboard from received content does not trigger echo back to sender) | x | 2025-12-28 |
 | TASK-7300 | Add integration test: verify both CLIPBOARD and PRIMARY updated when either selection changes on remote | x | 2025-12-28 |
 | TASK-7400 | Add integration test: verify client reconnection with exponential backoff (kill server, restart, verify client reconnects and sync resumes) | x | 2025-12-28 |
@@ -263,7 +263,8 @@ This plan describes the complete implementation of pclipsync, a tool that synchr
 - **FILE-1810**: tests/test_server_handler.py - Tests for server client handler
 - **FILE-1900**: tests/test_client_retry.py - Mocked tests for client connection and retry
 - **FILE-2000**: tests/test_main.py - Tests for CLI argument handling
-- **FILE-2100**: tests/test_integration.py - Integration tests requiring X11
+- **FILE-2100**: tests/test_integration_sync.py - Integration tests for sync behavior
+- **FILE-2110**: tests/test_integration_lifecycle.py - Integration tests for connection lifecycle
 - **FILE-2200**: README.md - User documentation
 
 ## 6. Testing
