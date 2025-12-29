@@ -40,7 +40,7 @@ async def handle_clipboard_change(
         writer: The asyncio StreamWriter for the socket connection.
         selection_atom: The selection atom (CLIPBOARD or PRIMARY) that changed.
     """
-    content = await read_clipboard_content(state.display, selection_atom)
+    content = await read_clipboard_content(state.display, state.window, selection_atom)
     if content is None or len(content) == 0:
         logger.debug("Clipboard read returned empty/None, skipping")
         return

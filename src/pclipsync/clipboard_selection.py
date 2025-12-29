@@ -56,9 +56,7 @@ def handle_selection_request(
 
     # Send SelectionNotify response
     event.requestor.send_event(
-        display.intern_atom("SelectionNotify", only_if_exists=True),
-        event_mask=0,
-        event=display.create_event(
+        display.create_event(
             X.SelectionNotify,
             requestor=event.requestor,
             selection=event.selection,
@@ -66,6 +64,7 @@ def handle_selection_request(
             property=event.property,
             time=event.time,
         ),
+        event_mask=0,
     )
     display.flush()
 
