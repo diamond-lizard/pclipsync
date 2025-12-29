@@ -20,19 +20,20 @@ async def handle_client(
     state: ClipboardState,
     reader: asyncio.StreamReader,
     writer: asyncio.StreamWriter,
+    server: asyncio.Server,
 ) -> None:
     """Handle a single client connection.
 
     Runs the sync loop for bidirectional clipboard synchronization with
     the connected client. On disconnect (EOF, protocol error, or connection
-    error), cleans up and stops the event loop.
+    error), cleans up and closes the server.
 
     Args:
         state: The clipboard synchronization state.
         reader: The asyncio StreamReader for the socket connection.
         writer: The asyncio StreamWriter for the socket connection.
+        server: The asyncio Server to close on client disconnect.
     """
-    import asyncio
     import logging
 
     from pclipsync.protocol import ProtocolError
@@ -48,4 +49,4 @@ async def handle_client(
     finally:
         writer.close()
         await writer.wait_closed()
-        asyncio.get_running_loop().stop()
+        server.close()
