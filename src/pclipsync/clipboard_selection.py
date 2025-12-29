@@ -41,8 +41,8 @@ def handle_selection_request(
     targets_atom = display.intern_atom("TARGETS")
     utf8_atom = display.intern_atom("UTF8_STRING")
     timestamp_atom = display.intern_atom("TIMESTAMP")
-    logger.debug("SelectionRequest target=%s targets_atom=%s utf8=%s STRING=%s prop=%s content_len=%s",
-        event.target, targets_atom, utf8_atom, Xatom.STRING, event.property, len(content))
+    logger.debug("SelectionRequest target=%s targets_atom=%s utf8=%s STRING=%s timestamp=%s prop=%s content_len=%s",
+        event.target, targets_atom, utf8_atom, Xatom.STRING, timestamp_atom, event.property, len(content))
 
     # Determine target and set property
     if event.target == targets_atom:
@@ -61,6 +61,7 @@ def handle_selection_request(
         event.requestor.change_property(
             event.property, Xatom.INTEGER, 32, [event.time]
         )
+        logger.debug("Handled TIMESTAMP request, returning time=%s", event.time)
     else:
         # Refuse unsupported target
         event.property = X.NONE
