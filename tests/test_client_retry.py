@@ -51,9 +51,9 @@ async def test_connect_to_server_failure_raises_connection_error() -> None:
 
 
 @pytest.mark.asyncio
-async def test_run_client_with_retry_clears_hash_state(mock_state: MagicMock) -> None:
+async def test_run_client_connection_clears_hash_state(mock_state: MagicMock) -> None:
     """Test hash state is cleared on each connection attempt."""
-    from pclipsync.client_retry import run_client_with_retry
+    from pclipsync.client_retry import run_client_connection
 
     # Set up hash state with some values
     mock_state.hash_state.record_sent("abc123")
@@ -74,39 +74,10 @@ async def test_run_client_with_retry_clears_hash_state(mock_state: MagicMock) ->
             mock_sync.side_effect = KeyboardInterrupt()
 
             with pytest.raises(KeyboardInterrupt):
-                await run_client_with_retry("/tmp/test.sock", mock_state)
+                await run_client_connection("/tmp/test.sock", mock_state)
 
     # Hash state should have been cleared
     assert mock_state.hash_state.last_sent_hash is None
     assert mock_state.hash_state.last_received_hash is None
 
 
-@pytest.mark.asyncio
-async def test_run_client_with_retry_retries_on_connection_error(
-    mock_state: MagicMock,
-) -> None:
-    """Test retry logic triggers on ConnectionError."""
-    from pclipsync.client_retry import run_client_with_retry
-
-    mock_reader = AsyncMock()
-    mock_writer = AsyncMock()
-    mock_writer.close = MagicMock()
-    mock_writer.wait_closed = AsyncMock()
-
-    connection_attempts = []
-
-    async def track_connection(path: str) -> tuple[AsyncMock, AsyncMock]:
-        connection_attempts.append(path)
-        if len(connection_attempts) < 3:
-            raise ConnectionError("Connection refused")
-        return (mock_reader, mock_writer)
-
-    with patch("pclipsync.client_retry.connect_to_server", side_effect=track_connection):
-        with patch("pclipsync.client_retry.run_sync_loop", new_callable=AsyncMock) as mock_sync:
-            mock_sync.side_effect = KeyboardInterrupt()
-
-            with pytest.raises(KeyboardInterrupt):
-                await run_client_with_retry("/tmp/test.sock", mock_state)
-
-    # Should have attempted 3 connections
-    assert len(connection_attempts) == 3

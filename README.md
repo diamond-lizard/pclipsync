@@ -54,7 +54,7 @@ The server will print a message confirming the socket is ready and show an examp
 ### 2. Establish the SSH tunnel with socket forwarding
 
 ```bash
-ssh -R /tmp/pclipsync-remote.sock:/tmp/pclipsync.sock user@remote-host
+ssh -o StreamLocalBindUnlink=yes -R /tmp/pclipsync-remote.sock:/tmp/pclipsync.sock user@remote-host
 ```
 
 This creates a reverse tunnel that forwards the remote socket to your local server.
@@ -98,7 +98,7 @@ For timely detection of connection loss, configure SSH keepalive settings:
 
 ```bash
 # On command line
-ssh -o ServerAliveInterval=30 -R /tmp/pclipsync-remote.sock:/tmp/pclipsync.sock user@host
+ssh -o StreamLocalBindUnlink=yes -o ServerAliveInterval=30 -R /tmp/pclipsync-remote.sock:/tmp/pclipsync.sock user@host
 
 # Or in ~/.ssh/config
 Host remote-host
@@ -106,6 +106,46 @@ Host remote-host
 ```
 
 This sends a keepalive packet every 30 seconds. If the connection drops, SSH will detect it and terminate, allowing pclipsync to handle the disconnection appropriately.
+
+## Stale Socket Cleanup
+
+When SSH creates a reverse tunnel with `-R`, the sshd daemon creates a Unix socket file on
+the remote machine. If the SSH connection terminates uncleanly (network failure, killed
+process, etc.), this socket file may be left behind as a "stale" socket.
+
+When you establish a new SSH tunnel, sshd may fail to bind to the socket path because the
+stale file still exists, and the pclipsync client will be unable to connect.
+
+**Symptoms of stale socket problems:**
+
+- pclipsync client exits with "Connection failed" error
+- The SSH tunnel appears to connect successfully
+- Manually removing the remote socket file fixes the issue
+
+**Recommended fix (requires root on remote machine):**
+
+Add `StreamLocalBindUnlink yes` to `/etc/ssh/sshd_config` on the remote machine and restart
+sshd. This tells sshd to automatically remove any existing socket file before creating a new
+one, ensuring reliable reconnection even after unclean disconnections.
+
+```
+# Add to /etc/ssh/sshd_config on remote machine:
+StreamLocalBindUnlink yes
+```
+
+Then restart sshd (e.g., `sudo systemctl restart sshd`).
+
+**Note:** The `-o StreamLocalBindUnlink=yes` option shown in the SSH examples only affects
+sockets created by the ssh client locally (for `-L` forwards). For `-R` forwards, the socket
+is created by sshd on the remote machine, so the sshd configuration is required.
+
+**Manual workaround (if you cannot modify sshd config):**
+
+Remove the stale socket file on the remote machine before re-establishing the SSH tunnel:
+
+```bash
+ssh user@remote-host "rm -f /path/to/remote/socket"
+```
 
 ## How It Works
 
