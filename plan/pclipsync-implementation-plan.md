@@ -164,15 +164,15 @@ This plan describes the complete implementation of pclipsync, a tool that synchr
 
 | Task      | Description | Completed | Date |
 | --------- | ----------- | --------- | ---- |
-| TASK-5800 | Create src/pclipsync/main.py with module docstring explaining CLI handling | | |
-| TASK-5900 | Implement click command group with options: --server (flag, run in server mode), --client (flag, run in client mode), --socket PATH (required string, Unix domain socket path), --verbose (flag, enable DEBUG-level logging), --help (automatic from click); mutually exclusive --server and --client with error if neither or both specified | | |
-| TASK-6000 | Implement function configure_logging(verbose: bool) -> None: if verbose, set logging level to DEBUG showing connection state, clipboard events, send/receive ops, skipped ops; otherwise set to WARNING (quiet default); errors always to stderr regardless of verbosity | | |
-| TASK-6100 | Implement main entry point function that: validates mutually exclusive mode flags (exit code 2 on usage error), calls configure_logging, imports heavy modules (python-xlib) AFTER argument validation for fast --help, uses asyncio.run() to call run_server from server.py or run_client from client.py based on mode | | |
-| TASK-6200 | Create src/pclipsync/__main__.py with minimal code: imports main from main.py and calls it; this enables python -m pclipsync invocation | | |
-| TASK-6300 | Implement signal handling in main: catch SIGINT and SIGTERM, close socket connections cleanly, call cleanup_socket from server_socket.py in server mode, exit with code 0 on signal, suppress KeyboardInterrupt traceback | | |
-| TASK-6400 | Create bin/pclipsync shell wrapper script using POSIX sh (not bash): resolve symlinks using realpath to find actual script location, navigate up from bin/ to project root (supports ~/bin/pclipsync -> project/bin/pclipsync symlink), check if .venv/ exists and exit with error directing user to run "uv sync" if missing, invoke .venv/bin/python -m pclipsync with all arguments passed through ("$@") | | |
-| TASK-6500 | Make bin/pclipsync executable with chmod +x | | |
-| TASK-6600 | Add tests in tests/test_main.py: test CLI argument validation (mutually exclusive modes, required socket), test exit codes (0 clean, 1 error, 2 usage) | | |
+| TASK-5800 | Create src/pclipsync/main.py with module docstring explaining CLI handling | x | 2025-12-28 |
+| TASK-5900 | Implement click command group with options: --server (flag, run in server mode), --client (flag, run in client mode), --socket PATH (required string, Unix domain socket path), --verbose (flag, enable DEBUG-level logging), --help (automatic from click); mutually exclusive --server and --client with error if neither or both specified | x | 2025-12-28 |
+| TASK-6000 | Implement function configure_logging(verbose: bool) -> None: if verbose, set logging level to DEBUG showing connection state, clipboard events, send/receive ops, skipped ops; otherwise set to WARNING (quiet default); errors always to stderr regardless of verbosity | x | 2025-12-28 |
+| TASK-6100 | Implement main entry point function that: validates mutually exclusive mode flags (exit code 2 on usage error), calls configure_logging, imports heavy modules (python-xlib) AFTER argument validation for fast --help, uses asyncio.run() to call run_server from server.py or run_client from client.py based on mode | x | 2025-12-28 |
+| TASK-6200 | Create src/pclipsync/__main__.py with minimal code: imports main from main.py and calls it; this enables python -m pclipsync invocation | x | 2025-12-28 |
+| TASK-6300 | Implement signal handling in main: catch SIGINT and SIGTERM, close socket connections cleanly, call cleanup_socket from server_socket.py in server mode, exit with code 0 on signal, suppress KeyboardInterrupt traceback | x | 2025-12-28 |
+| TASK-6400 | Create bin/pclipsync shell wrapper script using POSIX sh (not bash): resolve symlinks using realpath to find actual script location, navigate up from bin/ to project root (supports ~/bin/pclipsync -> project/bin/pclipsync symlink), check if .venv/ exists and exit with error directing user to run "uv sync" if missing, invoke .venv/bin/python -m pclipsync with all arguments passed through ("$@") | x | 2025-12-28 |
+| TASK-6500 | Make bin/pclipsync executable with chmod +x | x | 2025-12-28 |
+| TASK-6600 | Add tests in tests/test_main.py: test CLI argument validation (mutually exclusive modes, required socket), test exit codes (0 clean, 1 error, 2 usage) | x | 2025-12-28 |
 
 ### Implementation Phase 9: Integration Testing
 
