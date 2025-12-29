@@ -1,0 +1,129 @@
+#!/usr/bin/env python3
+"""Tests for clipboard selection request handling."""
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+
+@pytest.fixture
+def mock_display() -> MagicMock:
+    """Create a mock X11 display."""
+    display = MagicMock()
+    # Return distinct atom values for each interned atom
+    atom_map = {"TARGETS": 100, "UTF8_STRING": 101, "TIMESTAMP": 102}
+    display.intern_atom.side_effect = lambda name: atom_map.get(name, 999)
+    return display
+
+
+@pytest.fixture
+def mock_event() -> MagicMock:
+    """Create a mock SelectionRequest event."""
+    event = MagicMock()
+    event.requestor = MagicMock()
+    event.requestor.id = 12345
+    event.property = 200
+    event.selection = 300
+    event.time = 987654321
+    return event
+
+
+def test_targets_includes_timestamp(mock_display: MagicMock, mock_event: MagicMock) -> None:
+    """Test TARGETS response includes TIMESTAMP atom."""
+    # Request TARGETS
+    mock_event.target = 100  # TARGETS atom
+
+    with patch("Xlib.Xatom") as mock_xatom:
+        mock_xatom.ATOM = 4
+        mock_xatom.STRING = 31
+
+        from pclipsync.clipboard_selection import handle_selection_request
+        handle_selection_request(mock_display, mock_event, b"test content")
+
+    # Verify change_property was called with targets list including TIMESTAMP
+    mock_event.requestor.change_property.assert_called_once()
+    call_args = mock_event.requestor.change_property.call_args
+    targets_list = call_args[0][3]  # Fourth positional arg is the data
+    assert 102 in targets_list  # TIMESTAMP atom
+
+
+def test_timestamp_request_returns_integer(
+    mock_display: MagicMock, mock_event: MagicMock
+) -> None:
+    """Test TIMESTAMP request returns event.time as 32-bit INTEGER."""
+    # Request TIMESTAMP
+    mock_event.target = 102  # TIMESTAMP atom
+
+    with patch("Xlib.Xatom") as mock_xatom:
+        mock_xatom.INTEGER = 19
+        mock_xatom.STRING = 31
+
+        from pclipsync.clipboard_selection import handle_selection_request
+        handle_selection_request(mock_display, mock_event, b"test content")
+
+    # Verify change_property was called with INTEGER type and event.time
+    mock_event.requestor.change_property.assert_called_once()
+    call_args = mock_event.requestor.change_property.call_args
+    prop_type = call_args[0][1]  # Second positional arg is property type
+    format_bits = call_args[0][2]  # Third positional arg is format (32-bit)
+    data = call_args[0][3]  # Fourth positional arg is the data
+    assert prop_type == 19  # INTEGER
+    assert format_bits == 32
+    assert data == [987654321]
+
+
+def test_timestamp_request_has_valid_property(
+    mock_display: MagicMock, mock_event: MagicMock
+) -> None:
+    """Test TIMESTAMP request results in SelectionNotify with valid property."""
+    mock_event.target = 102  # TIMESTAMP atom
+    original_property = mock_event.property
+
+    with patch("Xlib.Xatom") as mock_xatom:
+        mock_xatom.INTEGER = 19
+        mock_xatom.STRING = 31
+
+        from pclipsync.clipboard_selection import handle_selection_request
+        handle_selection_request(mock_display, mock_event, b"test content")
+
+    # Property should NOT be set to X.NONE (which would indicate refusal)
+    # The original property value should be preserved
+    assert mock_event.property == original_property
+
+    # Verify SelectionNotify was sent
+    mock_event.requestor.send_event.assert_called_once()
+
+
+def test_utf8_string_still_works(mock_display: MagicMock, mock_event: MagicMock) -> None:
+    """Regression test: UTF8_STRING requests still work correctly."""
+    mock_event.target = 101  # UTF8_STRING atom
+    content = b"test clipboard content"
+
+    with patch("Xlib.Xatom") as mock_xatom:
+        mock_xatom.STRING = 31
+
+        from pclipsync.clipboard_selection import handle_selection_request
+        handle_selection_request(mock_display, mock_event, content)
+
+    mock_event.requestor.change_property.assert_called_once()
+    call_args = mock_event.requestor.change_property.call_args
+    prop_type = call_args[0][1]
+    format_bits = call_args[0][2]
+    data = call_args[0][3]
+    assert prop_type == 101  # UTF8_STRING
+    assert format_bits == 8
+    assert data == content
+
+
+def test_unsupported_target_refused(mock_display: MagicMock, mock_event: MagicMock) -> None:
+    """Regression test: unsupported targets are still refused."""
+    mock_event.target = 999  # Unknown target
+
+    with patch("Xlib.X") as mock_x, patch("Xlib.Xatom") as mock_xatom:
+        mock_x.NONE = 0
+        mock_xatom.STRING = 31
+
+        from pclipsync.clipboard_selection import handle_selection_request
+        handle_selection_request(mock_display, mock_event, b"test")
+
+    # Property should be set to X.NONE
+    assert mock_event.property == 0
