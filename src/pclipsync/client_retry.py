@@ -1,23 +1,42 @@
 #!/usr/bin/env python3
-"""Client connection and retry logic for pclipsync.
+"""Client connection logic for pclipsync.
 
-This module provides connection handling with automatic retry using
-tenacity for exponential backoff. Used by the client module for
-establishing and maintaining the connection to the server.
+This module provides connection handling for the client. When connection
+fails, the client exits immediately with a helpful error message explaining
+possible causes and remediation steps.
 """
 
 from __future__ import annotations
 
 import asyncio
-import logging
+import sys
 
-from tenacity import retry, retry_if_exception_type, stop_never, wait_exponential
-
-from pclipsync.client_constants import INITIAL_WAIT, MAX_WAIT, WAIT_MULTIPLIER
 from pclipsync.sync import run_sync_loop
 from pclipsync.sync_state import ClipboardState
 
-logger = logging.getLogger(__name__)
+
+STALE_SOCKET_MESSAGE = """
+Connection to {socket_path} failed.
+
+Possible causes:
+- The SSH tunnel is not established or has disconnected
+- The pclipsync server is not running on the local machine
+- A stale socket file exists from a previous SSH session
+
+If the SSH tunnel and pclipsync server are both running, a stale socket
+file may be preventing connection. To fix this:
+
+1. Remove the stale socket file on the remote machine:
+   rm -f {socket_path}
+
+2. Re-establish the SSH tunnel (if needed)
+
+3. Restart the pclipsync client
+
+To prevent stale socket issues, add this to /etc/ssh/sshd_config on the
+remote machine and restart sshd:
+   StreamLocalBindUnlink yes
+""".strip()
 
 
 async def connect_to_server(
@@ -43,49 +62,34 @@ async def connect_to_server(
         raise ConnectionError(f"Failed to connect to {socket_path}: {e}") from e
 
 
-@retry(
-    wait=wait_exponential(
-        multiplier=WAIT_MULTIPLIER,
-        min=INITIAL_WAIT,
-        max=MAX_WAIT,
-    ),
-    retry=retry_if_exception_type((ConnectionError, OSError)),
-    stop=stop_never,
-)
-async def run_client_with_retry(
+async def run_client_connection(
     socket_path: str,
     state: ClipboardState,
 ) -> None:
-    """Connect to server with retry and run sync loop.
+    """Connect to server and run sync loop.
 
-    Wraps connection and sync logic with tenacity retry decorator for
-    automatic reconnection on connection failures. Clears hash state
-    on each reconnect attempt for clean loop prevention tracking.
+    Attempts to connect to the server once. If connection fails, prints
+    a helpful error message to stderr and exits with code 1. If connected,
+    runs the sync loop until disconnection or error.
 
     Args:
         socket_path: Path to the Unix domain socket.
         state: The clipboard synchronization state.
 
     Note:
-        This function never returns normally - it either runs forever
-        or raises an exception that doesn't trigger retry.
+        On connection failure, this function calls sys.exit(1) and does
+        not return.
     """
-    # Clear hash state for clean slate on each connection attempt
     state.hash_state.clear()
 
-    logger.debug("Connecting to server at %s", socket_path)
     try:
         reader, writer = await connect_to_server(socket_path)
     except ConnectionError:
-        logger.warning("Connection to %s failed, will retry", socket_path)
-        raise
+        print(STALE_SOCKET_MESSAGE.format(socket_path=socket_path), file=sys.stderr)
+        sys.exit(1)
 
-    logger.debug("Connected to server at %s", socket_path)
     try:
         await run_sync_loop(state, reader, writer)
-    except (ConnectionError, OSError) as e:
-        logger.warning("Connection lost: %s, will retry", e)
-        raise
     finally:
         writer.close()
         await writer.wait_closed()

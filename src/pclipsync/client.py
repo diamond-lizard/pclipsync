@@ -6,15 +6,14 @@ to a pclipsync server via an SSH-tunneled Unix domain socket. The client
 monitors the local X11 clipboard and sends changes to the server, while
 also receiving clipboard updates from the server.
 
-See client_retry.py for connection retry logic and client_constants.py
-for retry configuration parameters.
+See client_retry.py for connection handling.
 """
 
 from __future__ import annotations
 
 from pclipsync.clipboard import create_hidden_window, validate_display
 from pclipsync.clipboard_events import register_xfixes_events
-from pclipsync.client_retry import run_client_with_retry
+from pclipsync.client_retry import run_client_connection
 from pclipsync.sync_state import ClipboardState
 
 
@@ -23,8 +22,7 @@ async def run_client(socket_path: str) -> None:
 
     Main entry point for client mode. Validates X11 connectivity,
     creates a hidden window for clipboard ownership, registers for
-    XFixes selection events, and connects to the server with automatic
-    retry on disconnection.
+    XFixes selection events, and connects to the server.
 
     Args:
         socket_path: Path to the Unix domain socket.
@@ -38,4 +36,4 @@ async def run_client(socket_path: str) -> None:
         window=window,
     )
 
-    await run_client_with_retry(socket_path, state)
+    await run_client_connection(socket_path, state)

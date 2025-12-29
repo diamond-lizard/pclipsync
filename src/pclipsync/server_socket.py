@@ -60,7 +60,7 @@ def print_startup_message(socket_path: str) -> None:
         socket_path: Path to the Unix domain socket.
     """
     print(f"Listening on {socket_path}", file=sys.stderr)
-    print(f"Example SSH forward: ssh -R REMOTE_SOCKET_PATH:{socket_path} user@host",
+    print(f"Example SSH forward: ssh -o StreamLocalBindUnlink=yes -R REMOTE_SOCKET_PATH:{socket_path} user@host",
             file=sys.stderr)
 
 

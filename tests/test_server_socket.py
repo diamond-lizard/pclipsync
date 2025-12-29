@@ -69,7 +69,7 @@ class TestPrintStartupMessage:
         """Test print_startup_message prints SSH forward example."""
         print_startup_message("/path/to/socket")
         captured = capsys.readouterr()
-        assert "ssh -R REMOTE_SOCKET_PATH:/path/to/socket" in captured.err
+        assert "ssh -o StreamLocalBindUnlink=yes -R REMOTE_SOCKET_PATH:/path/to/socket" in captured.err
 
 
 class TestCleanupSocket:
