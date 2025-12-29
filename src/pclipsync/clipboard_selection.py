@@ -33,10 +33,15 @@ def handle_selection_request(
         content: The content bytes to serve.
     """
     from Xlib import X, Xatom
+    from Xlib.protocol.event import SelectionNotify as SelectionNotifyEvent
+    import logging
+    logger = logging.getLogger(__name__)
 
     # Get required atoms
     targets_atom = display.intern_atom("TARGETS")
     utf8_atom = display.intern_atom("UTF8_STRING")
+    logger.debug("SelectionRequest target=%s targets_atom=%s utf8=%s STRING=%s prop=%s content_len=%s",
+        event.target, targets_atom, utf8_atom, Xatom.STRING, event.property, len(content))
 
     # Determine target and set property
     if event.target == targets_atom:
@@ -56,13 +61,12 @@ def handle_selection_request(
 
     # Send SelectionNotify response
     event.requestor.send_event(
-        display.create_event(
-            X.SelectionNotify,
-            requestor=event.requestor,
+        SelectionNotifyEvent(
+            time=event.time,
+            requestor=event.requestor.id,
             selection=event.selection,
             target=event.target,
             property=event.property,
-            time=event.time,
         ),
         event_mask=0,
     )
@@ -83,14 +87,17 @@ def process_pending_events(display: Display) -> list[Event]:
         List of pending events for processing.
     """
     from Xlib import X
+    import logging
+    logger = logging.getLogger(__name__)
 
     events: list[Event] = []
     while display.pending_events() > 0:
         event = display.next_event()
+        logger.debug("X11 event type=%s class=%s", event.type, type(event).__name__)
         # Collect SelectionRequest and XFixes events
         if event.type == X.SelectionRequest:
             events.append(event)
-        elif hasattr(event, "subcode"):
-            # XFixes events have a subcode attribute
+        elif type(event).__name__ == "SetSelectionOwnerNotify":
+            # XFixes SetSelectionOwnerNotify event
             events.append(event)
     return events

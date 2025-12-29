@@ -77,6 +77,6 @@ async def process_x11_events(
         if event.type == X.SelectionRequest:
             sel_event = cast("SelectionRequest", event)
             handle_selection_request(state.display, sel_event, state.current_content)
-        elif hasattr(event, "subcode"):
-            # XFixesSelectionNotify event
+        elif type(event).__name__ == "SetSelectionOwnerNotify":
+            # XFixes SetSelectionOwnerNotify event
             await handle_clipboard_change(state, writer, event.selection)

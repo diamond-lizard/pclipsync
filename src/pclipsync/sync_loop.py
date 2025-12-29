@@ -44,7 +44,6 @@ async def run_sync_loop(
     x11_event = asyncio.Event()
 
     def on_x11_readable() -> None:
-        """Signal that X11 events are ready to be processed."""
         x11_event.set()
 
     loop.add_reader(display_fd, on_x11_readable)
