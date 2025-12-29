@@ -1,0 +1,22 @@
+#!/bin/sh
+# pclipsync - X11 clipboard synchronization over SSH-tunneled Unix socket
+#
+# This wrapper script resolves symlinks to find the project root,
+# activates the virtual environment, and invokes the Python package.
+
+set -e
+
+# Resolve symlinks to find actual script location
+script_path="$(realpath "$0")"
+bin_dir="$(dirname "$script_path")"
+project_root="$(dirname "$bin_dir")"
+
+# Check for virtual environment
+if [ ! -d "$project_root/.venv" ]; then
+    echo "Error: Virtual environment not found at $project_root/.venv" >&2
+    echo "Run 'uv sync' in $project_root to create it" >&2
+    exit 1
+fi
+
+# Invoke Python package directly using venv Python
+exec "$project_root/.venv/bin/python" -m pclipsync "$@"
