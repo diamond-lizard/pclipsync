@@ -27,54 +27,55 @@ def mock_writer() -> AsyncMock:
     return writer
 
 
+@pytest.fixture
+def mock_loop() -> MagicMock:
+    """Create a mock event loop."""
+    return MagicMock()
+
 @pytest.mark.asyncio
-async def test_handle_client_runs_sync_loop_and_cleans_up(
-    mock_state: MagicMock, mock_writer: AsyncMock
+async def test_handle_client_runs_sync_loop_and_stops_loop(
+    mock_state: MagicMock, mock_writer: AsyncMock, mock_loop: MagicMock
 ) -> None:
-    """Test handle_client runs sync loop, cleans up socket, and exits 0."""
+    """Test handle_client runs sync loop, cleans up, and stops event loop."""
     from pclipsync.server_handler import handle_client
 
-    socket_path = "/tmp/test.sock"
     reader = AsyncMock()
 
     with patch("pclipsync.sync.run_sync_loop", new_callable=AsyncMock) as mock_sync:
-        with patch("pclipsync.server_socket.cleanup_socket") as mock_cleanup:
-            with pytest.raises(SystemExit) as exc_info:
-                await handle_client(mock_state, reader, mock_writer, socket_path)
+        with patch("asyncio.get_running_loop", return_value=mock_loop):
+            await handle_client(mock_state, reader, mock_writer)
 
             mock_sync.assert_called_once_with(mock_state, reader, mock_writer)
-            mock_cleanup.assert_called_once_with(socket_path)
             mock_writer.close.assert_called_once()
             mock_writer.wait_closed.assert_called_once()
-            assert exc_info.value.code == 0
+            mock_loop.stop.assert_called_once()
+
 
 
 @pytest.mark.asyncio
 async def test_handle_client_handles_protocol_error(
-    mock_state: MagicMock, mock_writer: AsyncMock
+    mock_state: MagicMock, mock_writer: AsyncMock, mock_loop: MagicMock
 ) -> None:
-    """Test handle_client handles ProtocolError and still exits cleanly."""
+    """Test handle_client handles ProtocolError and still stops loop cleanly."""
     from pclipsync.protocol import ProtocolError
     from pclipsync.server_handler import handle_client
 
     with patch("pclipsync.sync.run_sync_loop", new_callable=AsyncMock) as mock_sync:
         mock_sync.side_effect = ProtocolError("connection closed")
-        with patch("pclipsync.server_socket.cleanup_socket"):
-            with pytest.raises(SystemExit) as exc_info:
-                await handle_client(mock_state, AsyncMock(), mock_writer, "/tmp/t.sock")
-            assert exc_info.value.code == 0
+        with patch("asyncio.get_running_loop", return_value=mock_loop):
+            await handle_client(mock_state, AsyncMock(), mock_writer)
+            mock_loop.stop.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_handle_client_handles_connection_error(
-    mock_state: MagicMock, mock_writer: AsyncMock
+    mock_state: MagicMock, mock_writer: AsyncMock, mock_loop: MagicMock
 ) -> None:
-    """Test handle_client handles ConnectionError and still exits cleanly."""
+    """Test handle_client handles ConnectionError and still stops loop cleanly."""
     from pclipsync.server_handler import handle_client
 
     with patch("pclipsync.sync.run_sync_loop", new_callable=AsyncMock) as mock_sync:
         mock_sync.side_effect = ConnectionError("lost")
-        with patch("pclipsync.server_socket.cleanup_socket"):
-            with pytest.raises(SystemExit) as exc_info:
-                await handle_client(mock_state, AsyncMock(), mock_writer, "/tmp/t.sock")
-            assert exc_info.value.code == 0
+        with patch("asyncio.get_running_loop", return_value=mock_loop):
+            await handle_client(mock_state, AsyncMock(), mock_writer)
+            mock_loop.stop.assert_called_once()

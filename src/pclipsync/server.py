@@ -59,7 +59,7 @@ async def run_server(socket_path: str) -> None:
 
     # Start server and accept one client
     server = await asyncio.start_unix_server(
-        lambda r, w: handle_client(state, r, w, socket_path),
+        lambda r, w: handle_client(state, r, w),
         path=socket_path,
     )
 

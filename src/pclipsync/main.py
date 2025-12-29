@@ -72,6 +72,7 @@ def _run_mode(server: bool, socket: str) -> None:
     """
     import asyncio
     from pclipsync.client import run_client
+    from pclipsync.protocol import ProtocolError
 
     try:
         if server:
@@ -80,6 +81,9 @@ def _run_mode(server: bool, socket: str) -> None:
             asyncio.run(run_client(socket))
     except SystemExit:
         pass
+    except ProtocolError as e:
+        click.echo(f"Error: Server not available ({e})", err=True)
+        sys.exit(1)
 
 
 def _run_server_with_cleanup(socket: str) -> None:
