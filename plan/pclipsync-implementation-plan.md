@@ -180,18 +180,18 @@ This plan describes the complete implementation of pclipsync, a tool that synchr
 
 | Task      | Description | Completed | Date |
 | --------- | ----------- | --------- | ---- |
-| TASK-6700 | Create tests/conftest.py with pytest fixtures: fixture for Xvfb display setup if available, fixture for temporary Unix domain socket path, fixture for HashState initialization | | |
-| TASK-6800 | Define pytest marker "integration" in pyproject.toml for tests requiring X11 display to allow selective execution with pytest -m integration or pytest -m "not integration" | | |
-| TASK-6900 | Configure pytest in pyproject.toml: add [tool.pytest.ini_options] section with markers = ["integration: marks tests as integration tests (require X11)"] to suppress unknown marker warnings | | |
-| TASK-7000 | Configure pytest-asyncio in pyproject.toml: add asyncio_mode = "auto" to [tool.pytest.ini_options] section for automatic async test handling | | |
-| TASK-7100 | Create tests/test_integration.py with @pytest.mark.integration: test full server-client round-trip clipboard sync (content sent from server appears on client clipboard and vice versa) | | |
-| TASK-7200 | Add integration test: verify loop prevention (setting clipboard from received content does not trigger echo back to sender) | | |
-| TASK-7300 | Add integration test: verify both CLIPBOARD and PRIMARY updated when either selection changes on remote | | |
-| TASK-7400 | Add integration test: verify client reconnection with exponential backoff (kill server, restart, verify client reconnects and sync resumes) | | |
-| TASK-7500 | Add integration test: verify graceful shutdown (send SIGTERM to server, verify socket file cleaned up and exit code 0) | | |
-| TASK-7600 | Add Makefile target "test-integration": runs "uv run pytest -m integration" for integration tests only | | |
-| TASK-7700 | Add Makefile target "test-unit": runs "uv run pytest -m 'not integration'" for unit tests only | | |
-| TASK-7800 | Update Makefile target "test" to run ruff, mypy, then pytest (all tests) | | |
+| TASK-6700 | Create tests/conftest.py with pytest fixtures: fixture for Xvfb display setup if available, fixture for temporary Unix domain socket path, fixture for HashState initialization | x | 2025-12-28 |
+| TASK-6800 | Define pytest marker "integration" in pyproject.toml for tests requiring X11 display to allow selective execution with pytest -m integration or pytest -m "not integration" | x | 2025-12-28 |
+| TASK-6900 | Configure pytest in pyproject.toml: add [tool.pytest.ini_options] section with markers = ["integration: marks tests as integration tests (require X11)"] to suppress unknown marker warnings | x | 2025-12-28 |
+| TASK-7000 | Configure pytest-asyncio in pyproject.toml: add asyncio_mode = "auto" to [tool.pytest.ini_options] section for automatic async test handling | x | 2025-12-28 |
+| TASK-7100 | Create tests/test_integration.py with @pytest.mark.integration: test full server-client round-trip clipboard sync (content sent from server appears on client clipboard and vice versa) | x | 2025-12-28 |
+| TASK-7200 | Add integration test: verify loop prevention (setting clipboard from received content does not trigger echo back to sender) | x | 2025-12-28 |
+| TASK-7300 | Add integration test: verify both CLIPBOARD and PRIMARY updated when either selection changes on remote | x | 2025-12-28 |
+| TASK-7400 | Add integration test: verify client reconnection with exponential backoff (kill server, restart, verify client reconnects and sync resumes) | x | 2025-12-28 |
+| TASK-7500 | Add integration test: verify graceful shutdown (send SIGTERM to server, verify socket file cleaned up and exit code 0) | x | 2025-12-28 |
+| TASK-7600 | Add Makefile target "test-integration": runs "uv run pytest -m integration" for integration tests only | x | 2025-12-28 |
+| TASK-7700 | Add Makefile target "test-unit": runs "uv run pytest -m 'not integration'" for unit tests only | x | 2025-12-28 |
+| TASK-7800 | Update Makefile target "test" to run ruff, mypy, then pytest (all tests) | x | 2025-12-28 |
 
 ### Implementation Phase 10: Documentation and Polish
 
@@ -235,7 +235,7 @@ This plan describes the complete implementation of pclipsync, a tool that synchr
 - **FILE-0300**: bin/pclipsync - POSIX sh wrapper script for clean user invocation
 - **FILE-0400**: src/pclipsync/__init__.py - Package marker (empty)
 - **FILE-0500**: src/pclipsync/__main__.py - Entry point for python -m pclipsync
-- **FILE-0600**: src/pclipsync/main.py - CLI handling with click, signal handling, logging configuration
+- **FILE-0600**: src/pclipsync/main.py - CLI handling with click, signal handling, mode dispatch
 - **FILE-0610**: src/pclipsync/main_options.py - MutuallyExclusiveOption class for click
 - **FILE-0620**: src/pclipsync/main_logging.py - Logging configuration (configure_logging)
 - **FILE-0700**: src/pclipsync/protocol.py - Netstring encoding/decoding, ProtocolError exception

@@ -24,3 +24,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pclipsync"]
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests as integration tests (require X11)",
+]
+asyncio_mode = "auto"
