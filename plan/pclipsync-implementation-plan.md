@@ -208,7 +208,7 @@ This plan describes the complete implementation of pclipsync, a tool that synchr
 | TASK-8320 | Fix mypy errors in clipboard_selection.py: use SelectionRequest type for event parameter, Event type for return values | Yes | 2025-12-28 |
 | TASK-8330 | Fix mypy errors in sync_loop_inner.py: use Event type for event objects | Yes | 2025-12-28 |
 | TASK-8340 | Fix mypy errors in clipboard_events.py: use window.id instead of Window for select_selection_input | Yes | 2025-12-28 |
-| TASK-8400 | Run full test suite (make test) and verify all tests pass | | |
+| TASK-8400 | Run full test suite (make test) and verify all tests pass | Yes | 2025-12-28 |
 | TASK-8500 | Test end-to-end workflow manually: start server, establish SSH tunnel, start client, verify clipboard sync in both directions | | |
 
 ## 3. Alternatives
