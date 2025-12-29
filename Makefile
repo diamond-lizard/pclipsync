@@ -29,4 +29,4 @@ test-unit:
 	uv run pytest -m "not integration"
 
 shiv:
-	uv run shiv -o pclipsync.pyz -e pclipsync.__main__:main .
+	uv run shiv -o bin/pclipsync.pyz -e pclipsync.__main__:main .
