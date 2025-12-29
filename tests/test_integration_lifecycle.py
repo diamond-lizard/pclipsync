@@ -10,10 +10,7 @@ from pathlib import Path
 
 import pytest
 
-
-def has_display() -> bool:
-    """Check if X11 display is available."""
-    return os.environ.get("DISPLAY") is not None
+from conftest import has_display
 
 
 pytestmark = pytest.mark.integration
@@ -25,11 +22,11 @@ async def test_client_reconnection() -> None:
     
     Verifies that client reconnects after server restart.
     """
-    from pclipsync.client_constants import INITIAL_WAIT, MAX_WAIT, MULTIPLIER
+    from pclipsync.client_constants import INITIAL_WAIT, MAX_WAIT, WAIT_MULTIPLIER
     
     assert INITIAL_WAIT == 1.0
     assert MAX_WAIT == 60.0
-    assert MULTIPLIER == 2.0
+    assert WAIT_MULTIPLIER == 2.0
 
 
 @pytest.mark.skipif(not has_display(), reason="No X11 display available")

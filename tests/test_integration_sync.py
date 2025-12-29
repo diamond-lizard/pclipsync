@@ -10,10 +10,7 @@ from pathlib import Path
 
 import pytest
 
-
-def has_display() -> bool:
-    """Check if X11 display is available."""
-    return os.environ.get("DISPLAY") is not None
+from conftest import has_display
 
 
 pytestmark = pytest.mark.integration

@@ -16,6 +16,10 @@ import pytest
 from pclipsync.hashing import HashState
 
 
+def has_display() -> bool:
+    """Check if X11 display is available."""
+    return os.environ.get("DISPLAY") is not None
+
 @pytest.fixture
 def hash_state() -> HashState:
     """Create a fresh HashState instance for testing."""
