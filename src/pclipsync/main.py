@@ -19,8 +19,6 @@ from pclipsync.main_logging import configure_logging
 
 
 
-
-
 @click.command()
 @click.option(
     "--server",
@@ -54,11 +52,6 @@ def main(server: bool, client: bool, socket: str, verbose: bool) -> None:
 
     configure_logging(verbose)
 
-    # Lazy import of heavy modules after argument validation for fast --help
-    import asyncio
-
-    from pclipsync.server import run_server
-    from pclipsync.client import run_client
 
     def handle_signal(signum: int, frame) -> None:
         """Handle shutdown signal by raising SystemExit."""
@@ -67,14 +60,39 @@ def main(server: bool, client: bool, socket: str, verbose: bool) -> None:
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
 
+    _run_mode(server, socket)
+
+
+def _run_mode(server: bool, socket: str) -> None:
+    """Run the appropriate mode (server or client).
+
+    Args:
+        server: True for server mode, False for client mode.
+        socket: Path to the Unix domain socket.
+    """
+    import asyncio
+    from pclipsync.client import run_client
+
     try:
         if server:
-            from pclipsync.server_socket import cleanup_socket
-            try:
-                asyncio.run(run_server(socket))
-            finally:
-                cleanup_socket(socket)
+            _run_server_with_cleanup(socket)
         else:
             asyncio.run(run_client(socket))
     except SystemExit:
         pass
+
+
+def _run_server_with_cleanup(socket: str) -> None:
+    """Run server mode with socket cleanup on exit.
+
+    Args:
+        socket: Path to the Unix domain socket.
+    """
+    import asyncio
+    from pclipsync.server import run_server
+    from pclipsync.server_socket import cleanup_socket
+
+    try:
+        asyncio.run(run_server(socket))
+    finally:
+        cleanup_socket(socket)

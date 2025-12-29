@@ -32,7 +32,7 @@ def register_xfixes_events(display: Display, window: Window) -> None:
         display: The X11 display connection.
         window: The window to receive selection events.
     """
-    from Xlib import X, Xatom
+    from Xlib import Xatom
     from Xlib.ext import xfixes
 
     # Initialize XFixes extension

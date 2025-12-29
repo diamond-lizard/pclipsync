@@ -199,11 +199,11 @@ This plan describes the complete implementation of pclipsync, a tool that synchr
 
 | Task      | Description | Completed | Date |
 | --------- | ----------- | --------- | ---- |
-| TASK-7900 | Create README.md with: project description (X11 clipboard sync over SSH), installation instructions (uv sync), usage examples (server command, SSH forward command, client command), CLI reference (all options with descriptions), exit codes table, requirements (Python 3.12+, Linux, X11) | | |
-| TASK-8000 | Add SSH keepalive recommendation to README.md: suggest ServerAliveInterval 30 in ssh_config or -o ServerAliveInterval=30 on command line for timely detection of connection loss | | |
-| TASK-8100 | Verify all functions have docstrings explaining purpose, parameters, return value, and side effects per GUD-300 | | |
-| TASK-8200 | Verify all files are under 100 lines per CON-100; split any oversized files into logical submodules | | |
-| TASK-8300 | Verify no code exceeds three levels of indentation per CON-200; refactor with early returns, guard clauses, or helper functions as needed | | |
+| TASK-7900 | Create README.md with: project description (X11 clipboard sync over SSH), installation instructions (uv sync), usage examples (server command, SSH forward command, client command), CLI reference (all options with descriptions), exit codes table, requirements (Python 3.12+, Linux, X11) | Yes | 2025-12-28 |
+| TASK-8000 | Add SSH keepalive recommendation to README.md: suggest ServerAliveInterval 30 in ssh_config or -o ServerAliveInterval=30 on command line for timely detection of connection loss | Yes | 2025-12-28 |
+| TASK-8100 | Verify all functions have docstrings explaining purpose, parameters, return value, and side effects per GUD-300 | Yes | 2025-12-28 |
+| TASK-8200 | Verify all files are under 100 lines per CON-100; split any oversized files into logical submodules | Yes | 2025-12-28 |
+| TASK-8300 | Verify no code exceeds three levels of indentation per CON-200; refactor with early returns, guard clauses, or helper functions as needed | Yes | 2025-12-28 |
 | TASK-8400 | Run full test suite (make test) and verify all tests pass | | |
 | TASK-8500 | Test end-to-end workflow manually: start server, establish SSH tunnel, start client, verify clipboard sync in both directions | | |
 
@@ -239,7 +239,8 @@ This plan describes the complete implementation of pclipsync, a tool that synchr
 - **FILE-0610**: src/pclipsync/main_options.py - MutuallyExclusiveOption class for click
 - **FILE-0620**: src/pclipsync/main_logging.py - Logging configuration (configure_logging)
 - **FILE-0700**: src/pclipsync/protocol.py - Netstring encoding/decoding, ProtocolError exception
-- **FILE-0800**: src/pclipsync/hashing.py - SHA-256 hashing, HashState dataclass for loop prevention
+- **FILE-0800**: src/pclipsync/hashing.py - SHA-256 hashing (compute_hash), re-exports HashState from hash_state
+- **FILE-0810**: src/pclipsync/hash_state.py - HashState dataclass for loop prevention
 - **FILE-0900**: src/pclipsync/clipboard.py - X11 core: display validation, window creation, display FD access
 - **FILE-0950**: src/pclipsync/clipboard_io.py - X11 clipboard I/O: reading clipboard content with timeout
 - **FILE-0960**: src/pclipsync/clipboard_events.py - X11 event handling: XFixes registration, set clipboard ownership
@@ -247,7 +248,8 @@ This plan describes the complete implementation of pclipsync, a tool that synchr
 - **FILE-1000**: src/pclipsync/sync.py - Re-exports sync components from submodules
 - **FILE-1010**: src/pclipsync/sync_state.py - ClipboardState dataclass
 - **FILE-1020**: src/pclipsync/sync_handlers.py - handle_clipboard_change, handle_incoming_content
-- **FILE-1030**: src/pclipsync/sync_loop.py - run_sync_loop, asyncio event loop integration
+- **FILE-1030**: src/pclipsync/sync_loop.py - run_sync_loop entry point, asyncio event loop integration
+- **FILE-1035**: src/pclipsync/sync_loop_inner.py - sync_loop_inner, process_x11_events inner loop functions
 - **FILE-1100**: src/pclipsync/server.py - Server mode entry point (run_server)
 - **FILE-1110**: src/pclipsync/server_socket.py - Socket utilities (check_socket_state, print_startup_message, cleanup_socket)
 - **FILE-1120**: src/pclipsync/server_handler.py - Client connection handler (handle_client)

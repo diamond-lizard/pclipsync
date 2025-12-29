@@ -31,7 +31,6 @@ async def run_server(socket_path: str) -> None:
         socket_path: Path to the Unix domain socket to listen on.
     """
     import asyncio
-    import logging
 
     from pclipsync.clipboard import create_hidden_window, validate_display
     from pclipsync.clipboard_events import register_xfixes_events
@@ -40,7 +39,6 @@ async def run_server(socket_path: str) -> None:
     from pclipsync.server_socket import check_socket_state, print_startup_message
     from pclipsync.sync import ClipboardState
 
-    logger = logging.getLogger(__name__)
 
     # Initialize X11
     display = validate_display()

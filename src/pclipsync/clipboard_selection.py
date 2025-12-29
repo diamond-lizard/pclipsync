@@ -54,7 +54,7 @@ def handle_selection_request(
         event.property = X.NONE
 
     # Send SelectionNotify response
-    notify = event.requestor.send_event(
+    event.requestor.send_event(
         display.intern_atom("SelectionNotify", only_if_exists=True),
         event_mask=0,
         event=display.create_event(

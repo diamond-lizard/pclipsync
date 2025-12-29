@@ -14,7 +14,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from Xlib.display import Display
-    from Xlib.xobject.drawable import Window
 
 # Timeout in seconds for clipboard read operations to prevent hangs
 # when the clipboard owner is unresponsive
@@ -40,13 +39,11 @@ async def read_clipboard_content(
     import asyncio
     import logging
 
-    from Xlib import X, Xatom
+    from Xlib import X
 
     logger = logging.getLogger(__name__)
 
     try:
-        # Get the UTF8_STRING atom
-        utf8_atom = display.intern_atom("UTF8_STRING")
 
         # Get selection owner
         owner = display.get_selection_owner(selection_atom)
