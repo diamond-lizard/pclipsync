@@ -25,6 +25,22 @@ uv sync
 # The bin/pclipsync wrapper is now ready to use
 ```
 
+### Standalone Binary
+
+To create a standalone executable that can be copied to remote machines without
+requiring uv or installing dependencies:
+
+```bash
+make shiv
+```
+
+This produces `pclipsync.pyz`, a self-contained zipapp that only requires
+Python 3.12+ to run. Copy it to the remote machine and run directly:
+
+```bash
+./bin/pclipsync.pyz --client --socket /path/to/socket
+```
+
 ## Usage
 
 ### 1. Start the server on your local machine
