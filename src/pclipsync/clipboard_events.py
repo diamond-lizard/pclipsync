@@ -44,8 +44,8 @@ def register_xfixes_events(display: Display, window: Window) -> None:
 
     # Register for selection change events on both selections
     mask = xfixes.XFixesSetSelectionOwnerNotifyMask
-    xfixes.select_selection_input(display, window, clipboard_atom, mask)
-    xfixes.select_selection_input(display, window, primary_atom, mask)
+    xfixes.select_selection_input(display, window.id, clipboard_atom, mask)
+    xfixes.select_selection_input(display, window.id, primary_atom, mask)
     display.flush()
 
 

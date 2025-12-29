@@ -8,7 +8,7 @@ network events for bidirectional clipboard synchronization.
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from Xlib import X
 
@@ -17,6 +17,8 @@ from pclipsync.protocol import read_netstring
 from pclipsync.sync_handlers import handle_clipboard_change, handle_incoming_content
 
 if TYPE_CHECKING:
+    from Xlib.protocol.event import SelectionRequest
+
     from pclipsync.sync_state import ClipboardState
 
 
@@ -73,7 +75,8 @@ async def process_x11_events(
     events = process_pending_events(state.display)
     for event in events:
         if event.type == X.SelectionRequest:
-            handle_selection_request(state.display, event, state.current_content)
+            sel_event = cast("SelectionRequest", event)
+            handle_selection_request(state.display, sel_event, state.current_content)
         elif hasattr(event, "subcode"):
             # XFixesSelectionNotify event
             await handle_clipboard_change(state, writer, event.selection)

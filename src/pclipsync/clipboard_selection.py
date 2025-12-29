@@ -15,10 +15,11 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from Xlib.display import Display
-
+    from Xlib.protocol.event import SelectionRequest
+    from Xlib.protocol.rq import Event
 
 def handle_selection_request(
-    display: Display, event: object, content: bytes
+    display: Display, event: SelectionRequest, content: bytes
 ) -> None:
     """Respond to SelectionRequest events when owning selections.
 
@@ -69,7 +70,7 @@ def handle_selection_request(
     display.flush()
 
 
-def process_pending_events(display: Display) -> list[object]:
+def process_pending_events(display: Display) -> list[Event]:
     """Process only events already pending without blocking.
 
     Checks pending_events() before processing to avoid stalling the asyncio
@@ -84,7 +85,7 @@ def process_pending_events(display: Display) -> list[object]:
     """
     from Xlib import X
 
-    events = []
+    events: list[Event] = []
     while display.pending_events() > 0:
         event = display.next_event()
         # Collect SelectionRequest and XFixes events
