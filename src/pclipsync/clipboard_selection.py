@@ -87,7 +87,9 @@ def handle_selection_request(
     display.flush()
 
 
-def process_pending_events(display: Display) -> list[Event]:
+def process_pending_events(
+    display: Display, deferred_events: list["Event"] | None = None
+) -> list[Event]:
     """Process only events already pending without blocking.
 
     Checks pending_events() before processing to avoid stalling the asyncio
@@ -96,6 +98,8 @@ def process_pending_events(display: Display) -> list[Event]:
 
     Args:
         display: The X11 display connection.
+        deferred_events: Optional list of events deferred during clipboard
+            reads. These will be drained and prepended to the result.
 
     Returns:
         List of pending events for processing.
@@ -105,6 +109,10 @@ def process_pending_events(display: Display) -> list[Event]:
     logger = logging.getLogger(__name__)
 
     events: list[Event] = []
+    # Drain deferred events first (preserves event ordering)
+    if deferred_events:
+        events.extend(deferred_events)
+        deferred_events.clear()
     while display.pending_events() > 0:
         event = display.next_event()
         logger.debug("X11 event type=%s class=%s", event.type, type(event).__name__)

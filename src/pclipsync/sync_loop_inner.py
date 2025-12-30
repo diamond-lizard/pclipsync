@@ -81,7 +81,7 @@ async def process_x11_events(
         state: The clipboard synchronization state.
         writer: The asyncio StreamWriter for the socket connection.
     """
-    events = process_pending_events(state.display)
+    events = process_pending_events(state.display, state.deferred_events)
     for event in events:
         if event.type == X.SelectionRequest:
             sel_event = cast("SelectionRequest", event)
