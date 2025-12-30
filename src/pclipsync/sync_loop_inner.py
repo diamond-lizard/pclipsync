@@ -8,6 +8,7 @@ network events for bidirectional clipboard synchronization.
 from __future__ import annotations
 
 import asyncio
+from contextlib import suppress
 from typing import TYPE_CHECKING, cast
 
 from Xlib import X
@@ -39,26 +40,36 @@ async def sync_loop_inner(
         writer: The asyncio StreamWriter for the socket connection.
         x11_event: Event signaled when X11 FD is readable.
     """
-    while True:
-        # Wait for either X11 event or network data
-        read_task = asyncio.create_task(read_netstring(reader))
-        x11_task = asyncio.create_task(x11_event.wait())
+    read_task = asyncio.create_task(read_netstring(reader))
+    try:
+        while True:
+            # Wait for either X11 event or network data
+            x11_task = asyncio.create_task(x11_event.wait())
 
-        done, pending = await asyncio.wait(
-            {read_task, x11_task}, return_when=asyncio.FIRST_COMPLETED
-        )
+            done, pending = await asyncio.wait(
+                {read_task, x11_task}, return_when=asyncio.FIRST_COMPLETED
+            )
 
-        for task in pending:
-            task.cancel()
+            # Only cancel x11_task - it's stateless (Event.wait)
+            # Never cancel read_task - it would corrupt StreamReader buffer
+            with suppress(asyncio.CancelledError):
+                x11_task.cancel()
+                await x11_task
 
-        if x11_task in done:
-            x11_event.clear()
-            await process_x11_events(state, writer)
+            if x11_task in done:
+                x11_event.clear()
+                await process_x11_events(state, writer)
 
-        if read_task in done:
-            content = read_task.result()
-            await handle_incoming_content(state, content)
+            if read_task in done:
+                content = read_task.result()
+                await handle_incoming_content(state, content)
+                read_task = asyncio.create_task(read_netstring(reader))
 
+    finally:
+        # Clean up read_task on loop exit
+        read_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await read_task
 
 async def process_x11_events(
     state: ClipboardState, writer: asyncio.StreamWriter
