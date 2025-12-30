@@ -7,6 +7,7 @@ client modes.
 """
 
 from __future__ import annotations
+import asyncio
 
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
@@ -16,6 +17,7 @@ from pclipsync.hashing import HashState
 if TYPE_CHECKING:
     from Xlib.display import Display
     from Xlib.xobject.drawable import Window
+    from Xlib.protocol.rq import Event
 
 
 @dataclass
@@ -33,6 +35,8 @@ class ClipboardState:
         current_content: Last known clipboard content bytes.
         acquisition_time: X server timestamp when we acquired clipboard ownership,
             or None if we don't own it.
+        deferred_events: List of X11 events deferred during clipboard reads.
+        x11_event: asyncio.Event signaled when X11 events need processing.
     """
 
     display: Display
@@ -40,3 +44,5 @@ class ClipboardState:
     hash_state: HashState = field(default_factory=HashState)
     current_content: bytes = b""
     acquisition_time: int | None = None
+    deferred_events: list[Event] = field(default_factory=list)
+    x11_event: asyncio.Event = field(default_factory=asyncio.Event)
