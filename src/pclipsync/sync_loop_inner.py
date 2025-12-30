@@ -26,8 +26,7 @@ if TYPE_CHECKING:
 async def sync_loop_inner(
     state: ClipboardState,
     reader: asyncio.StreamReader,
-    writer: asyncio.StreamWriter,
-    x11_event: asyncio.Event,
+    writer: asyncio.StreamWriter
 ) -> None:
     """Inner sync loop handling X11 and network events.
 
@@ -38,13 +37,12 @@ async def sync_loop_inner(
         state: The clipboard synchronization state.
         reader: The asyncio StreamReader for the socket connection.
         writer: The asyncio StreamWriter for the socket connection.
-        x11_event: Event signaled when X11 FD is readable.
     """
     read_task = asyncio.create_task(read_netstring(reader))
     try:
         while True:
             # Wait for either X11 event or network data
-            x11_task = asyncio.create_task(x11_event.wait())
+            x11_task = asyncio.create_task(state.x11_event.wait())
 
             done, pending = await asyncio.wait(
                 {read_task, x11_task}, return_when=asyncio.FIRST_COMPLETED
@@ -57,7 +55,7 @@ async def sync_loop_inner(
                 await x11_task
 
             if x11_task in done:
-                x11_event.clear()
+                state.x11_event.clear()
                 await process_x11_events(state, writer)
 
             if read_task in done:

@@ -115,7 +115,7 @@ async def test_read_task_not_cancelled_when_x11_event_fires() -> None:
     state.display = MagicMock()
     reader = MagicMock()
     writer = AsyncMock()
-    x11_event = asyncio.Event()
+    state.x11_event = asyncio.Event()
 
     with patch(
         "pclipsync.sync_loop_inner.read_netstring", side_effect=mock_read_netstring
@@ -129,11 +129,11 @@ async def test_read_task_not_cancelled_when_x11_event_fires() -> None:
             # Give the loop time to start
             await asyncio.sleep(0.01)
             # Trigger x11 event
-            x11_event.set()
+            state.x11_event.set()
             # Give time for one iteration to complete
             await asyncio.sleep(0.01)
 
-        task = asyncio.create_task(sync_loop_inner(state, reader, writer, x11_event))
+        task = asyncio.create_task(sync_loop_inner(state, reader, writer))
         await run_one_iteration()
         task.cancel()
         with suppress(asyncio.CancelledError):
@@ -168,7 +168,7 @@ async def test_new_read_task_created_after_previous_completes() -> None:
     state.display = MagicMock()
     reader = MagicMock()
     writer = AsyncMock()
-    x11_event = asyncio.Event()
+    state.x11_event = asyncio.Event()
 
     with patch(
         "pclipsync.sync_loop_inner.read_netstring", side_effect=mock_read_netstring
@@ -183,7 +183,7 @@ async def test_new_read_task_created_after_previous_completes() -> None:
             # Give time for the first read to complete and second to start
             await asyncio.sleep(0.05)
 
-        task = asyncio.create_task(sync_loop_inner(state, reader, writer, x11_event))
+        task = asyncio.create_task(sync_loop_inner(state, reader, writer))
         await run_test()
         task.cancel()
         with suppress(asyncio.CancelledError):
