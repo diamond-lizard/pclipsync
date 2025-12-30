@@ -23,6 +23,8 @@ def mock_clipboard_state() -> MagicMock:
     state.window.id = 12345
     state.current_content = b""
     state.acquisition_time = None
+    state.deferred_events = []
+    state.x11_event = asyncio.Event()
     return state
 
 

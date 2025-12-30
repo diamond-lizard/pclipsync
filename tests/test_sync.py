@@ -7,6 +7,7 @@ content handling, and handle_incoming_content for proper hash ordering.
 """
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import asyncio
 import pytest
 
 from pclipsync.hashing import HashState
@@ -20,6 +21,8 @@ def mock_clipboard_state() -> MagicMock:
     state.display = MagicMock()
     state.window = MagicMock()
     state.current_content = b""
+    state.deferred_events = []
+    state.x11_event = asyncio.Event()
     return state
 
 
