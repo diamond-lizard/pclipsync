@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from Xlib.display import Display
     from Xlib.xobject.drawable import Window
+    from Xlib.protocol.rq import Event
+    import asyncio
 
 # Timeout in seconds for clipboard read operations to prevent hangs
 # when the clipboard owner is unresponsive
@@ -22,7 +24,11 @@ CLIPBOARD_TIMEOUT: float = 2.0
 
 
 async def read_clipboard_content(
-    display: Display, window: Window, selection_atom: int
+    display: Display,
+    window: Window,
+    selection_atom: int,
+    deferred_events: list["Event"],
+    x11_event: "asyncio.Event",
 ) -> bytes | None:
     """Read clipboard content from the current selection owner.
 
@@ -34,6 +40,8 @@ async def read_clipboard_content(
         display: The X11 display connection.
         window: The window to receive selection data.
         selection_atom: The selection atom (CLIPBOARD or PRIMARY).
+        deferred_events: List to collect events deferred during polling.
+        x11_event: asyncio.Event to signal when events are deferred.
 
     Returns:
         Content bytes if successful, None on failure/empty/timeout.
@@ -62,7 +70,9 @@ async def read_clipboard_content(
         display.flush()
         
         # Poll for SelectionNotify with timeout
-        content = await _wait_for_selection(display, window, prop_atom)
+        content = await _wait_for_selection(
+            display, window, prop_atom, deferred_events, x11_event
+        )
         return content
 
     except asyncio.TimeoutError:
@@ -74,7 +84,11 @@ async def read_clipboard_content(
 
 
 async def _wait_for_selection(
-    display: "Display", window: "Window", prop_atom: int
+    display: "Display",
+    window: "Window",
+    prop_atom: int,
+    deferred_events: list["Event"],
+    x11_event: "asyncio.Event",
 ) -> bytes | None:
     """Wait for SelectionNotify and read property data.
     
@@ -85,6 +99,8 @@ async def _wait_for_selection(
         display: The X11 display connection.
         window: The window that requested the selection.
         prop_atom: The property atom where data will be stored.
+        deferred_events: List to collect events deferred during polling.
+        x11_event: asyncio.Event to signal when events are deferred.
     
     Returns:
         Content bytes if successful, None on failure/timeout.
@@ -102,10 +118,21 @@ async def _wait_for_selection(
         while display.pending_events() > 0:
             event = display.next_event()
             if event.type == X.SelectionNotify:
+                # Signal main loop if events were deferred
+                if deferred_events:
+                    x11_event.set()
                 return _read_selection_property(display, window, prop_atom)
+            # Defer SelectionRequest and SetSelectionOwnerNotify events
+            if event.type == X.SelectionRequest:
+                deferred_events.append(event)
+            elif type(event).__name__ == "SetSelectionOwnerNotify":
+                deferred_events.append(event)
         await asyncio.sleep(poll_interval)
         elapsed += poll_interval
     
+    # Signal main loop if events were deferred
+    if deferred_events:
+        x11_event.set()
     logger.debug("Timeout waiting for SelectionNotify")
     return None
 
