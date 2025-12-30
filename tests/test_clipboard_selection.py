@@ -37,7 +37,7 @@ def test_targets_includes_timestamp(mock_display: MagicMock, mock_event: MagicMo
         mock_xatom.STRING = 31
 
         from pclipsync.clipboard_selection import handle_selection_request
-        handle_selection_request(mock_display, mock_event, b"test content")
+        handle_selection_request(mock_display, mock_event, b"test content", None)
 
     # Verify change_property was called with targets list including TIMESTAMP
     mock_event.requestor.change_property.assert_called_once()
@@ -49,7 +49,7 @@ def test_targets_includes_timestamp(mock_display: MagicMock, mock_event: MagicMo
 def test_timestamp_request_returns_integer(
     mock_display: MagicMock, mock_event: MagicMock
 ) -> None:
-    """Test TIMESTAMP request returns event.time as 32-bit INTEGER."""
+    """Test TIMESTAMP request returns acquisition_time as 32-bit INTEGER."""
     # Request TIMESTAMP
     mock_event.target = 102  # TIMESTAMP atom
 
@@ -58,9 +58,9 @@ def test_timestamp_request_returns_integer(
         mock_xatom.STRING = 31
 
         from pclipsync.clipboard_selection import handle_selection_request
-        handle_selection_request(mock_display, mock_event, b"test content")
+        handle_selection_request(mock_display, mock_event, b"test content", 555666777)
 
-    # Verify change_property was called with INTEGER type and event.time
+    # Verify change_property was called with INTEGER type and acquisition_time
     mock_event.requestor.change_property.assert_called_once()
     call_args = mock_event.requestor.change_property.call_args
     prop_type = call_args[0][1]  # Second positional arg is property type
@@ -68,7 +68,7 @@ def test_timestamp_request_returns_integer(
     data = call_args[0][3]  # Fourth positional arg is the data
     assert prop_type == 19  # INTEGER
     assert format_bits == 32
-    assert data == [987654321]
+    assert data == [555666777]
 
 
 def test_timestamp_request_has_valid_property(
@@ -83,7 +83,7 @@ def test_timestamp_request_has_valid_property(
         mock_xatom.STRING = 31
 
         from pclipsync.clipboard_selection import handle_selection_request
-        handle_selection_request(mock_display, mock_event, b"test content")
+        handle_selection_request(mock_display, mock_event, b"test content", 555666777)
 
     # Property should NOT be set to X.NONE (which would indicate refusal)
     # The original property value should be preserved
@@ -102,7 +102,7 @@ def test_utf8_string_still_works(mock_display: MagicMock, mock_event: MagicMock)
         mock_xatom.STRING = 31
 
         from pclipsync.clipboard_selection import handle_selection_request
-        handle_selection_request(mock_display, mock_event, content)
+        handle_selection_request(mock_display, mock_event, content, None)
 
     mock_event.requestor.change_property.assert_called_once()
     call_args = mock_event.requestor.change_property.call_args
@@ -123,7 +123,28 @@ def test_unsupported_target_refused(mock_display: MagicMock, mock_event: MagicMo
         mock_xatom.STRING = 31
 
         from pclipsync.clipboard_selection import handle_selection_request
-        handle_selection_request(mock_display, mock_event, b"test")
+        handle_selection_request(mock_display, mock_event, b"test", None)
 
     # Property should be set to X.NONE
     assert mock_event.property == 0
+
+
+def test_timestamp_refused_when_acquisition_time_none(
+    mock_display: MagicMock, mock_event: MagicMock
+) -> None:
+    """Test TIMESTAMP request refused when acquisition_time is None."""
+    # Request TIMESTAMP
+    mock_event.target = 102  # TIMESTAMP atom
+    
+    with patch("Xlib.X") as mock_x, patch("Xlib.Xatom") as mock_xatom:
+        mock_x.NONE = 0
+        mock_xatom.STRING = 31
+        mock_xatom.INTEGER = 19
+        
+        from pclipsync.clipboard_selection import handle_selection_request
+        handle_selection_request(mock_display, mock_event, b"test", None)
+    
+    # Property should be set to X.NONE (refused)
+    assert mock_event.property == 0
+    # change_property should NOT be called
+    mock_event.requestor.change_property.assert_not_called()

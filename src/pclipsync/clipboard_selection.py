@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from Xlib.protocol.rq import Event
 
 def handle_selection_request(
-    display: Display, event: SelectionRequest, content: bytes
+    display: Display, event: SelectionRequest, content: bytes, acquisition_time: int | None
 ) -> None:
     """Respond to SelectionRequest events when owning selections.
 
@@ -31,6 +31,8 @@ def handle_selection_request(
         display: The X11 display connection.
         event: The SelectionRequest event.
         content: The content bytes to serve.
+        acquisition_time: The X server timestamp when we acquired clipboard
+            ownership, or None if unknown. Used for TIMESTAMP responses.
     """
     from Xlib import X, Xatom
     from Xlib.protocol.event import SelectionNotify as SelectionNotifyEvent
@@ -58,10 +60,15 @@ def handle_selection_request(
         )
     elif event.target == timestamp_atom:
         # Return acquisition timestamp as 32-bit integer
-        event.requestor.change_property(
-            event.property, Xatom.INTEGER, 32, [event.time]
-        )
-        logger.debug("Handled TIMESTAMP request, returning time=%s", event.time)
+        if acquisition_time is not None:
+            event.requestor.change_property(
+                event.property, Xatom.INTEGER, 32, [acquisition_time]
+            )
+            logger.debug("Handled TIMESTAMP request, returning time=%s", acquisition_time)
+        else:
+            # Refuse if we don't have a valid acquisition timestamp
+            event.property = X.NONE
+            logger.debug("Refused TIMESTAMP request, no acquisition_time")
     else:
         # Refuse unsupported target
         event.property = X.NONE

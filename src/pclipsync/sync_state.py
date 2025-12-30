@@ -31,9 +31,12 @@ class ClipboardState:
         window: The hidden window for clipboard ownership.
         hash_state: Hash tracking for loop prevention.
         current_content: Last known clipboard content bytes.
+        acquisition_time: X server timestamp when we acquired clipboard ownership,
+            or None if we don't own it.
     """
 
     display: Display
     window: Window
     hash_state: HashState = field(default_factory=HashState)
     current_content: bytes = b""
+    acquisition_time: int | None = None
