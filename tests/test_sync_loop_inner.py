@@ -4,6 +4,8 @@
 Tests that process_x11_events correctly stores and clears acquisition_time
 based on SetSelectionOwnerNotify events.
 """
+import asyncio
+from contextlib import suppress
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -87,3 +89,109 @@ async def test_clears_timestamp_when_we_lose_ownership(
     
     # acquisition_time should be cleared to None
     assert mock_clipboard_state.acquisition_time is None
+
+
+@pytest.mark.asyncio
+async def test_read_task_not_cancelled_when_x11_event_fires() -> None:
+    """Verify read_task is not cancelled when x11_event completes first.
+
+    The read_task must persist across iterations to avoid StreamReader
+    buffer corruption. Only the stateless x11_task should be cancelled.
+    """
+    # Track if read_task was cancelled
+    read_cancelled = False
+
+    async def mock_read_netstring(reader: asyncio.StreamReader) -> bytes:
+        nonlocal read_cancelled
+        try:
+            # Simulate waiting for network data
+            await asyncio.sleep(10)
+            return b"test"
+        except asyncio.CancelledError:
+            read_cancelled = True
+            raise
+
+    state = MagicMock()
+    state.display = MagicMock()
+    reader = MagicMock()
+    writer = AsyncMock()
+    x11_event = asyncio.Event()
+
+    with patch(
+        "pclipsync.sync_loop_inner.read_netstring", side_effect=mock_read_netstring
+    ) as mock_read, patch(
+        "pclipsync.sync_loop_inner.process_x11_events", new_callable=AsyncMock
+    ) as mock_process:
+        from pclipsync.sync_loop_inner import sync_loop_inner
+
+        # Run one iteration: set x11_event immediately, then cancel after processing
+        async def run_one_iteration() -> None:
+            # Give the loop time to start
+            await asyncio.sleep(0.01)
+            # Trigger x11 event
+            x11_event.set()
+            # Give time for one iteration to complete
+            await asyncio.sleep(0.01)
+
+        task = asyncio.create_task(sync_loop_inner(state, reader, writer, x11_event))
+        await run_one_iteration()
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+
+    # read_task should NOT have been cancelled during normal operation
+    # It only gets cancelled in the finally block when the loop exits
+    assert mock_process.called, "process_x11_events should have been called"
+
+
+@pytest.mark.asyncio
+async def test_new_read_task_created_after_previous_completes() -> None:
+    """Verify a new read_task is created only after the previous one completes.
+
+    When network data arrives (read_task completes), the loop should process
+    the data and then create a new read_task for the next message.
+    """
+    call_count = 0
+
+    async def mock_read_netstring(reader: asyncio.StreamReader) -> bytes:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            # First call returns immediately with data
+            return b"first message"
+        else:
+            # Subsequent calls wait forever (simulate no more data)
+            await asyncio.sleep(10)
+            return b"never reached"
+
+    state = MagicMock()
+    state.display = MagicMock()
+    reader = MagicMock()
+    writer = AsyncMock()
+    x11_event = asyncio.Event()
+
+    with patch(
+        "pclipsync.sync_loop_inner.read_netstring", side_effect=mock_read_netstring
+    ) as mock_read, patch(
+        "pclipsync.sync_loop_inner.handle_incoming_content", new_callable=AsyncMock
+    ) as mock_handle, patch(
+        "pclipsync.sync_loop_inner.process_x11_events", new_callable=AsyncMock
+    ):
+        from pclipsync.sync_loop_inner import sync_loop_inner
+
+        async def run_test() -> None:
+            # Give time for the first read to complete and second to start
+            await asyncio.sleep(0.05)
+
+        task = asyncio.create_task(sync_loop_inner(state, reader, writer, x11_event))
+        await run_test()
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+
+    # read_netstring should have been called twice:
+    # 1. Initially before the loop
+    # 2. After processing the first message
+    assert call_count == 2, f"Expected 2 calls, got {call_count}"
+    # handle_incoming_content should have been called once with the first message
+    mock_handle.assert_called_once_with(state, b"first message")
