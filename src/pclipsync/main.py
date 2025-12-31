@@ -1,8 +1,7 @@
 """CLI handling for pclipsync.
 
 This module provides the command-line interface for pclipsync, handling
-argument parsing via click, logging configuration, signal handling for
-graceful shutdown, and dispatching to server or client mode based on
+argument parsing via click, logging configuration, and dispatching to server or client mode based on
 user-specified options.
 
 Usage:
@@ -11,7 +10,6 @@ Usage:
 """
 
 import click
-import signal
 import sys
 
 from pclipsync.main_options import MutuallyExclusiveOption
@@ -51,14 +49,6 @@ def main(server: bool, client: bool, socket: str, verbose: bool) -> None:
         raise click.UsageError("Either --server or --client must be specified")
 
     configure_logging(verbose)
-
-
-    def handle_signal(signum: int, frame) -> None:
-        """Handle shutdown signal by raising SystemExit."""
-        sys.exit(0)
-
-    signal.signal(signal.SIGINT, handle_signal)
-    signal.signal(signal.SIGTERM, handle_signal)
 
     _run_mode(server, socket)
 

@@ -31,6 +31,7 @@ async def run_server(socket_path: str) -> None:
         socket_path: Path to the Unix domain socket to listen on.
     """
     import asyncio
+    import signal
 
     from pclipsync.clipboard import create_hidden_window, validate_display
     from pclipsync.clipboard_events import register_xfixes_events
@@ -59,13 +60,35 @@ async def run_server(socket_path: str) -> None:
     check_socket_state(socket_path)
     print_startup_message(socket_path)
 
+    # Register signal handlers for clean shutdown
+    shutdown_requested = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    loop.add_signal_handler(signal.SIGINT, shutdown_requested.set)
+    loop.add_signal_handler(signal.SIGTERM, shutdown_requested.set)
+
+    # Create exception holder for client handler
+    exception_holder: list[Exception] = []
+
     # Start server and accept one client
     shutdown_event = asyncio.Event()
     server = await asyncio.start_unix_server(
-        lambda r, w: handle_client(state, r, w, shutdown_event),
+        lambda r, w: handle_client(state, r, w, shutdown_event, shutdown_requested, exception_holder),
         path=socket_path,
     )
 
     async with server:
-        await shutdown_event.wait()
+        # Wait for either client disconnect or signal
+        shutdown_event_task = asyncio.create_task(shutdown_event.wait())
+        shutdown_requested_task = asyncio.create_task(shutdown_requested.wait())
+        done, pending = await asyncio.wait(
+            [shutdown_event_task, shutdown_requested_task],
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        for task in pending:
+            task.cancel()
+
+        # Propagate any exception from client handler
+        if exception_holder:
+            raise exception_holder[0]
+
         server.close()
