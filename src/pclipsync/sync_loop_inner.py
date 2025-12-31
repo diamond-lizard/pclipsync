@@ -87,9 +87,11 @@ async def process_x11_events(
             sel_event = cast("SelectionRequest", event)
             handle_selection_request(state.display, sel_event, state.current_content, state.acquisition_time)
         elif type(event).__name__ == "SetSelectionOwnerNotify":
-            # XFixes SetSelectionOwnerNotify event
-            if event.owner.id == state.window.id:
-                state.acquisition_time = event.timestamp
-            else:
-                state.acquisition_time = None
+            # XFixes SetSelectionOwnerNotify event - track ownership loss
+            if event.owner.id != state.window.id:
+                # We lost ownership of this selection
+                state.owned_selections.discard(event.selection)
+                # Clear acquisition_time only when we own no selections
+                if not state.owned_selections:
+                    state.acquisition_time = None
             await handle_clipboard_change(state, writer, event.selection)

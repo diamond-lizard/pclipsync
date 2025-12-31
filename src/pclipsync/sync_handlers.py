@@ -101,14 +101,27 @@ async def handle_incoming_content(
     state.hash_state.record_received(content_hash)
     state.current_content = content
 
+
+    # Clear owned_selections - we're claiming new ownership of both selections
+    state.owned_selections.clear()
     # Get atoms for both selections
-    clipboard_atom = state.display.intern_atom("CLIPBOARD")
+    clipboard_atom = state.clipboard_atom
     primary_atom = Xatom.PRIMARY
 
     # Set both CLIPBOARD and PRIMARY selections
-    if not set_clipboard_content(state.display, state.window, content, clipboard_atom):
+    if set_clipboard_content(state.display, state.window, content, clipboard_atom):
+        state.owned_selections.add(clipboard_atom)
+    else:
         logger.error("Failed to set CLIPBOARD selection")
-    if not set_clipboard_content(state.display, state.window, content, primary_atom):
+    if set_clipboard_content(state.display, state.window, content, primary_atom):
+        state.owned_selections.add(primary_atom)
+    else:
         logger.error("Failed to set PRIMARY selection")
+
+    # Set acquisition_time if we own at least one selection
+    if state.owned_selections:
+        state.acquisition_time = get_server_timestamp(
+            state.display, state.window, state.deferred_events
+        )
 
     logger.debug("Received and set %d bytes from remote", len(content))
