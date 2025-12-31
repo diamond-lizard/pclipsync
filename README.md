@@ -161,6 +161,14 @@ ssh user@remote-host "rm -f /path/to/remote/socket"
 - Maximum content size: 10 MB per clipboard transfer
 - Single client: The server accepts exactly one client connection
 
+
+## Clipboard Manager Compatibility
+
+If you run a clipboard manager (such as Klipper, Parcellite, CopyQ, or similar),
+disable its clipboard synchronization feature (the feature that keeps PRIMARY and
+CLIPBOARD in sync). pclipsync already synchronizes both selections, and having two
+tools doing the same thing can cause feedback loops or unexpected behavior.
+
 ## License
 
 See LICENSE file for details.
