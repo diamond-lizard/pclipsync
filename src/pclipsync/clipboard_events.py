@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from Xlib.xobject.drawable import Window
 
 
-def register_xfixes_events(display: Display, window: Window) -> None:
+def register_xfixes_events(display: Display, window: Window, clipboard_atom: int) -> None:
     """Register for XFixes selection change notifications.
 
     Uses the XFixes extension to register for XFixesSelectionNotify events
@@ -31,6 +31,7 @@ def register_xfixes_events(display: Display, window: Window) -> None:
     Args:
         display: The X11 display connection.
         window: The window to receive selection events.
+        clipboard_atom: The cached CLIPBOARD atom.
     """
     from Xlib import Xatom
     from Xlib.ext import xfixes
@@ -38,8 +39,7 @@ def register_xfixes_events(display: Display, window: Window) -> None:
     # Initialize XFixes extension
     xfixes.query_version(display)
 
-    # Get atoms for CLIPBOARD and PRIMARY selections
-    clipboard_atom = display.intern_atom("CLIPBOARD")
+    # Get atom for PRIMARY selection (CLIPBOARD passed in)
     primary_atom = Xatom.PRIMARY
 
     # Register for selection change events on both selections

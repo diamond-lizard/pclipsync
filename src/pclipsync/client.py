@@ -29,11 +29,13 @@ async def run_client(socket_path: str) -> None:
     """
     display = validate_display()
     window = create_hidden_window(display)
-    register_xfixes_events(display, window)
+    clipboard_atom = display.intern_atom("CLIPBOARD")
+    register_xfixes_events(display, window, clipboard_atom)
 
     state = ClipboardState(
         display=display,
         window=window,
+        clipboard_atom=clipboard_atom,
     )
 
     await run_client_connection(socket_path, state)

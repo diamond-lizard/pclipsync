@@ -43,7 +43,8 @@ async def run_server(socket_path: str) -> None:
     # Initialize X11
     display = validate_display()
     window = create_hidden_window(display)
-    register_xfixes_events(display, window)
+    clipboard_atom = display.intern_atom("CLIPBOARD")
+    register_xfixes_events(display, window, clipboard_atom)
 
     # Initialize state
     state = ClipboardState(
@@ -51,6 +52,7 @@ async def run_server(socket_path: str) -> None:
         window=window,
         hash_state=HashState(),
         current_content=b"",
+        clipboard_atom=clipboard_atom,
     )
 
     # Check and prepare socket

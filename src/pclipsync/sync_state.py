@@ -37,6 +37,8 @@ class ClipboardState:
             or None if we don't own it.
         deferred_events: List of X11 events deferred during clipboard reads.
         x11_event: asyncio.Event signaled when X11 events need processing.
+        clipboard_atom: Cached CLIPBOARD atom to avoid X11 round-trips.
+        owned_selections: Set of selection atoms pclipsync currently owns.
     """
 
     display: Display
@@ -46,3 +48,5 @@ class ClipboardState:
     acquisition_time: int | None = None
     deferred_events: list[Event] = field(default_factory=list)
     x11_event: asyncio.Event = field(default_factory=asyncio.Event)
+    clipboard_atom: int = 0
+    owned_selections: set[int] = field(default_factory=set)

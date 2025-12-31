@@ -73,8 +73,9 @@ class TestRegisterXfixesEvents:
         display = Display()
         try:
             window = create_hidden_window(display)
+            clipboard_atom = display.intern_atom("CLIPBOARD")
             # Should not raise - successful registration
-            register_xfixes_events(display, window)
+            register_xfixes_events(display, window, clipboard_atom)
         finally:
             display.close()
 
