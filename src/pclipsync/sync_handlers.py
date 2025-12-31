@@ -18,6 +18,7 @@ from pclipsync.clipboard_events import set_clipboard_content
 from pclipsync.clipboard_io import read_clipboard_content
 from pclipsync.hashing import compute_hash
 from pclipsync.protocol import encode_netstring, validate_content_size
+from pclipsync.selection_utils import get_other_selection, get_server_timestamp
 
 if TYPE_CHECKING:
     from pclipsync.sync_state import ClipboardState
@@ -58,6 +59,18 @@ async def handle_clipboard_change(
         logger.warning("Clipboard content exceeds 10 MB limit, skipping")
         return
 
+    # Update current_content so we can serve this if we take ownership
+    state.current_content = content
+
+    # Mirror to other selection before sending to remote
+    other_atom = get_other_selection(selection_atom, state.clipboard_atom)
+    if set_clipboard_content(state.display, state.window, content, other_atom):
+        state.owned_selections.add(other_atom)
+        state.acquisition_time = get_server_timestamp(
+            state.display, state.window, state.deferred_events
+        )
+    else:
+        logger.warning("Failed to mirror to other selection, continuing")
     current_hash = compute_hash(content)
     if not state.hash_state.should_send(current_hash):
         logger.debug("Skipping duplicate or echo content")
