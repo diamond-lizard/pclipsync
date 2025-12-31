@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import asyncio
 
 from pclipsync.hashing import HashState
 
@@ -40,11 +41,13 @@ async def test_handle_client_runs_sync_loop_and_signals_shutdown(
     from pclipsync.server_handler import handle_client
 
     reader = AsyncMock()
+    shutdown_requested = asyncio.Event()
+    exception_holder: list[Exception] = []
 
     with patch("pclipsync.sync.run_sync_loop", new_callable=AsyncMock) as mock_sync:
-        await handle_client(mock_state, reader, mock_writer, mock_shutdown_event)
+        await handle_client(mock_state, reader, mock_writer, mock_shutdown_event, shutdown_requested, exception_holder)
 
-        mock_sync.assert_called_once_with(mock_state, reader, mock_writer)
+        mock_sync.assert_called_once_with(mock_state, reader, mock_writer, shutdown_requested)
         mock_writer.close.assert_called_once()
         mock_writer.wait_closed.assert_called_once()
         mock_shutdown_event.set.assert_called_once()
@@ -60,7 +63,7 @@ async def test_handle_client_handles_protocol_error(
 
     with patch("pclipsync.sync.run_sync_loop", new_callable=AsyncMock) as mock_sync:
         mock_sync.side_effect = ProtocolError("connection closed")
-        await handle_client(mock_state, AsyncMock(), mock_writer, mock_shutdown_event)
+        await handle_client(mock_state, AsyncMock(), mock_writer, mock_shutdown_event, asyncio.Event(), [])
         mock_shutdown_event.set.assert_called_once()
 
 
@@ -73,5 +76,5 @@ async def test_handle_client_handles_connection_error(
 
     with patch("pclipsync.sync.run_sync_loop", new_callable=AsyncMock) as mock_sync:
         mock_sync.side_effect = ConnectionError("lost")
-        await handle_client(mock_state, AsyncMock(), mock_writer, mock_shutdown_event)
+        await handle_client(mock_state, AsyncMock(), mock_writer, mock_shutdown_event, asyncio.Event(), [])
         mock_shutdown_event.set.assert_called_once()

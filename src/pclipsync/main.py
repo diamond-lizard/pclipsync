@@ -69,10 +69,8 @@ def _run_mode(server: bool, socket: str) -> None:
             _run_server_with_cleanup(socket)
         else:
             asyncio.run(run_client(socket))
-    except SystemExit:
-        pass
-    except ProtocolError as e:
-        click.echo(f"Error: Server not available ({e})", err=True)
+    except (ProtocolError, ConnectionError) as e:
+        click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
 

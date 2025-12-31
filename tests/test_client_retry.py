@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import asyncio
 
 from pclipsync.hashing import HashState
 from pclipsync.sync_state import ClipboardState
@@ -66,6 +67,7 @@ async def test_run_client_connection_clears_hash_state(mock_state: MagicMock) ->
     mock_writer = AsyncMock()
     mock_writer.close = MagicMock()
     mock_writer.wait_closed = AsyncMock()
+    shutdown_requested = asyncio.Event()
 
     with patch("pclipsync.client_retry.connect_to_server", new_callable=AsyncMock) as mock_conn:
         mock_conn.return_value = (mock_reader, mock_writer)
@@ -74,7 +76,7 @@ async def test_run_client_connection_clears_hash_state(mock_state: MagicMock) ->
             mock_sync.side_effect = KeyboardInterrupt()
 
             with pytest.raises(KeyboardInterrupt):
-                await run_client_connection("/tmp/test.sock", mock_state)
+                await run_client_connection("/tmp/test.sock", mock_state, shutdown_requested)
 
     # Hash state should have been cleared
     assert mock_state.hash_state.last_sent_hash is None

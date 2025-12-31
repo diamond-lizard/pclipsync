@@ -48,8 +48,13 @@ async def handle_client(
 
     try:
         await run_sync_loop(state, reader, writer, shutdown_requested)
-    except (ProtocolError, ConnectionError) as e:
-        logger.debug("Client disconnected: %s", e)
+        logger.debug("Client disconnected cleanly")
+    except ProtocolError as e:
+        logger.error("Protocol error: %s", e)
+        exception_holder.append(e)
+    except ConnectionError as e:
+        logger.error("Connection error: %s", e)
+        exception_holder.append(e)
     finally:
         writer.close()
         await writer.wait_closed()

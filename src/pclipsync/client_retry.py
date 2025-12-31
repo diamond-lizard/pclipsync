@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import asyncio
 import sys
+import logging
 
 from pclipsync.sync import run_sync_loop
 from pclipsync.sync_state import ClipboardState
+from pclipsync.protocol import ProtocolError
 
 
 STALE_SOCKET_MESSAGE = """
@@ -90,8 +92,16 @@ async def run_client_connection(
         print(STALE_SOCKET_MESSAGE.format(socket_path=socket_path), file=sys.stderr)
         sys.exit(1)
 
+    logger = logging.getLogger(__name__)
     try:
         await run_sync_loop(state, reader, writer, shutdown_requested)
+        logger.debug("Server disconnected cleanly")
+    except ProtocolError as e:
+        logger.error("Protocol error: %s", e)
+        sys.exit(1)
+    except ConnectionError as e:
+        logger.error("Connection error: %s", e)
+        sys.exit(1)
     finally:
         writer.close()
         await writer.wait_closed()
