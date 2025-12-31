@@ -92,8 +92,8 @@ async def _wait_for_selection(
 ) -> bytes | None:
     """Wait for SelectionNotify and read property data.
     
-    Polls for SelectionNotify event with timeout, then reads
-    the property data from the window.
+    Uses wait_for_event_type to poll for SelectionNotify, with asyncio
+    timeout handling. Signals x11_event if events were deferred.
     
     Args:
         display: The X11 display connection.
@@ -110,31 +110,27 @@ async def _wait_for_selection(
     
     from Xlib import X
     
+    from pclipsync.selection_utils import wait_for_event_type
+    
     logger = logging.getLogger(__name__)
-    poll_interval = 0.01
-    elapsed = 0.0
     
-    while elapsed < CLIPBOARD_TIMEOUT:
-        while display.pending_events() > 0:
-            event = display.next_event()
-            if event.type == X.SelectionNotify:
-                # Signal main loop if events were deferred
-                if deferred_events:
-                    x11_event.set()
-                return _read_selection_property(display, window, prop_atom)
-            # Defer SelectionRequest and SetSelectionOwnerNotify events
-            if event.type == X.SelectionRequest:
-                deferred_events.append(event)
-            elif type(event).__name__ == "SetSelectionOwnerNotify":
-                deferred_events.append(event)
-        await asyncio.sleep(poll_interval)
-        elapsed += poll_interval
-    
-    # Signal main loop if events were deferred
-    if deferred_events:
-        x11_event.set()
-    logger.debug("Timeout waiting for SelectionNotify")
-    return None
+    try:
+        event = await asyncio.wait_for(
+            asyncio.to_thread(
+                wait_for_event_type, display, X.SelectionNotify, deferred_events
+            ),
+            timeout=CLIPBOARD_TIMEOUT,
+        )
+        # Signal main loop if events were deferred
+        if deferred_events:
+            x11_event.set()
+        return _read_selection_property(display, window, prop_atom)
+    except asyncio.TimeoutError:
+        # Signal main loop if events were deferred
+        if deferred_events:
+            x11_event.set()
+        logger.debug("Timeout waiting for SelectionNotify")
+        return None
 
 
 def _read_selection_property(
