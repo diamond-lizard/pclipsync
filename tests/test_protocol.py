@@ -5,6 +5,7 @@ Unit tests for netstring protocol encoding and decoding.
 Tests encode_netstring, read_netstring, and ProtocolError behavior.
 """
 import asyncio
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -13,6 +14,8 @@ from pclipsync.protocol import (
     ProtocolError,
     encode_netstring,
     read_netstring,
+    is_goodbye,
+    send_goodbye,
     validate_content_size,
 )
 
@@ -142,3 +145,51 @@ async def test_read_netstring_connection_closed() -> None:
     reader = make_reader(b"")
     with pytest.raises(ProtocolError, match="Connection closed"):
         await read_netstring(reader)
+
+@pytest.mark.asyncio
+async def test_read_netstring_incomplete_read_raises_protocol_error() -> None:
+    """Test ProtocolError raised when readexactly hits EOF mid-content."""
+    # Feed 10 bytes length, but only 3 bytes of content (no terminator)
+    reader = make_reader(b"10:abc")
+    with pytest.raises(ProtocolError, match="Connection closed"):
+        await read_netstring(reader)
+
+
+def test_is_goodbye_empty_bytes() -> None:
+    """Test is_goodbye returns True for empty bytes."""
+    assert is_goodbye(b"") is True
+
+
+def test_is_goodbye_non_empty_bytes() -> None:
+    """Test is_goodbye returns False for non-empty bytes."""
+    assert is_goodbye(b"hello") is False
+
+
+@pytest.mark.asyncio
+async def test_send_goodbye_writes_empty_netstring() -> None:
+    """Test send_goodbye writes the goodbye message (empty netstring)."""
+    writer = AsyncMock()
+    writer.write = MagicMock()
+    writer.drain = AsyncMock()
+    await send_goodbye(writer)
+    writer.write.assert_called_once_with(b"0:,")
+    writer.drain.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_send_goodbye_ignores_os_error() -> None:
+    """Test send_goodbye catches and ignores OSError (write errors)."""
+    writer = AsyncMock()
+    writer.write = MagicMock(side_effect=OSError("Connection reset"))
+    # Should not raise
+    await send_goodbye(writer)
+
+
+@pytest.mark.asyncio
+async def test_send_goodbye_ignores_timeout_error() -> None:
+    """Test send_goodbye catches and ignores asyncio.TimeoutError."""
+    writer = AsyncMock()
+    writer.write = MagicMock()
+    writer.drain = AsyncMock(side_effect=asyncio.TimeoutError())
+    # Should not raise
+    await send_goodbye(writer)

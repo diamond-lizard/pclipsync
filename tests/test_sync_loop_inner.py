@@ -210,3 +210,75 @@ async def test_new_read_task_created_after_previous_completes() -> None:
     assert call_count == 2, f"Expected 2 calls, got {call_count}"
     # handle_incoming_content should have been called once with the first message
     mock_handle.assert_called_once_with(state, b"first message")
+
+
+@pytest.mark.asyncio
+async def test_sync_loop_returns_cleanly_on_shutdown_requested() -> None:
+    """Verify sync loop returns cleanly when shutdown_requested is set.
+
+    When shutdown_requested is set, the loop should send goodbye and return
+    without raising an exception.
+    """
+    async def mock_read_netstring(reader: asyncio.StreamReader) -> bytes:
+        # Simulate waiting for network data that never comes
+        await asyncio.sleep(10)
+        return b"never reached"
+
+    state = MagicMock()
+    state.display = MagicMock()
+    reader = MagicMock()
+    writer = AsyncMock()
+    state.x11_event = asyncio.Event()
+    shutdown_requested = asyncio.Event()
+
+    with patch(
+        "pclipsync.sync_loop_inner.read_netstring", side_effect=mock_read_netstring
+    ) as mock_read, patch(
+        "pclipsync.sync_loop_inner.send_goodbye", new_callable=AsyncMock
+    ) as mock_goodbye, patch(
+        "pclipsync.sync_loop_inner.process_x11_events", new_callable=AsyncMock
+    ):
+        from pclipsync.sync_loop_inner import sync_loop_inner
+
+        async def trigger_shutdown() -> None:
+            await asyncio.sleep(0.01)
+            shutdown_requested.set()
+
+        task = asyncio.create_task(sync_loop_inner(state, reader, writer, shutdown_requested))
+        await trigger_shutdown()
+        # Should complete without cancellation or exception
+        await asyncio.wait_for(task, timeout=1.0)
+
+    mock_goodbye.assert_called_once_with(writer)
+
+
+@pytest.mark.asyncio
+async def test_sync_loop_returns_cleanly_on_goodbye_received() -> None:
+    """Verify sync loop returns cleanly when goodbye (empty content) is received.
+
+    When the remote sends an empty netstring (goodbye), the loop should return
+    without raising an exception.
+    """
+    async def mock_read_netstring(reader: asyncio.StreamReader) -> bytes:
+        # Return empty bytes (goodbye message)
+        return b""
+
+    state = MagicMock()
+    state.display = MagicMock()
+    reader = MagicMock()
+    writer = AsyncMock()
+    state.x11_event = asyncio.Event()
+    shutdown_requested = asyncio.Event()
+
+    with patch(
+        "pclipsync.sync_loop_inner.read_netstring", side_effect=mock_read_netstring
+    ), patch(
+        "pclipsync.sync_loop_inner.process_x11_events", new_callable=AsyncMock
+    ):
+        from pclipsync.sync_loop_inner import sync_loop_inner
+
+        # Should complete without exception when goodbye received
+        await asyncio.wait_for(
+            sync_loop_inner(state, reader, writer, shutdown_requested),
+            timeout=1.0
+        )
