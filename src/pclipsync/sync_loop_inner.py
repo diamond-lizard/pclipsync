@@ -8,13 +8,14 @@ network events for bidirectional clipboard synchronization.
 from __future__ import annotations
 
 import asyncio
+import logging
 from contextlib import suppress
 from typing import TYPE_CHECKING, cast
 
 from Xlib import X
 
 from pclipsync.clipboard_selection import handle_selection_request, process_pending_events
-from pclipsync.protocol import read_netstring
+from pclipsync.protocol import read_netstring, send_goodbye, is_goodbye
 from pclipsync.sync_handlers import handle_clipboard_change, handle_incoming_content
 
 if TYPE_CHECKING:
@@ -41,13 +42,14 @@ async def sync_loop_inner(
         shutdown_requested: Event signaling graceful shutdown request.
     """
     read_task = asyncio.create_task(read_netstring(reader))
+    shutdown_task = asyncio.create_task(shutdown_requested.wait())
     try:
         while True:
             # Wait for either X11 event or network data
             x11_task = asyncio.create_task(state.x11_event.wait())
 
             done, pending = await asyncio.wait(
-                {read_task, x11_task}, return_when=asyncio.FIRST_COMPLETED
+                {read_task, x11_task, shutdown_task}, return_when=asyncio.FIRST_COMPLETED
             )
 
             # Only cancel x11_task - it's stateless (Event.wait)
@@ -62,14 +64,24 @@ async def sync_loop_inner(
 
             if read_task in done:
                 content = read_task.result()
+                if is_goodbye(content):
+                    logging.debug("Remote disconnected cleanly")
+                    return
                 await handle_incoming_content(state, content)
                 read_task = asyncio.create_task(read_netstring(reader))
+
+            if shutdown_task in done:
+                await send_goodbye(writer)
+                return
 
     finally:
         # Clean up read_task on loop exit
         read_task.cancel()
         with suppress(asyncio.CancelledError):
             await read_task
+        shutdown_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await shutdown_task
 
 async def process_x11_events(
     state: ClipboardState, writer: asyncio.StreamWriter
