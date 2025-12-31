@@ -108,7 +108,7 @@ async def test_read_netstring_missing_comma() -> None:
 async def test_read_netstring_length_mismatch() -> None:
     """Test ProtocolError raised when length doesn't match content."""
     reader = make_reader(b"10:short,")
-    with pytest.raises(asyncio.IncompleteReadError):
+    with pytest.raises(ProtocolError):
         await read_netstring(reader)
 
 
