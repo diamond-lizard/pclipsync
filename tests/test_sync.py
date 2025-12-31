@@ -23,6 +23,8 @@ def mock_clipboard_state() -> MagicMock:
     state.current_content = b""
     state.deferred_events = []
     state.x11_event = asyncio.Event()
+    state.owned_selections = set()
+    state.clipboard_atom = MagicMock()
     return state
 
 
@@ -143,7 +145,8 @@ async def test_handle_incoming_content_sets_hash_before_clipboard(
 
     mock_clipboard_state.hash_state.record_received = track_record_received
 
-    with patch("pclipsync.sync_handlers.set_clipboard_content") as mock_set:
+    with patch("pclipsync.sync_handlers.set_clipboard_content") as mock_set, \
+        patch("pclipsync.sync_handlers.get_server_timestamp", return_value=12345):
         def track_set(*args: object, **kwargs: object) -> bool:
             call_order.append("set_clipboard")
             return True
