@@ -22,6 +22,10 @@ MAX_CONTENT_SIZE: int = 10485760
 # Enforced during parsing to prevent denial of service from huge length values.
 MAX_LENGTH_DIGITS: int = 8
 
+# Goodbye message: empty netstring signaling clean shutdown.
+# Sent before intentional disconnect (SIGINT/SIGTERM).
+GOODBYE_MESSAGE: bytes = b"0:,"
+
 
 def encode_netstring(data: bytes) -> bytes:
     """
@@ -91,8 +95,50 @@ async def read_netstring(reader: asyncio.StreamReader) -> bytes:
     length = int(length_bytes.decode("ascii"))
     if length > MAX_CONTENT_SIZE:
         raise ProtocolError(f"Content size {length} exceeds limit {MAX_CONTENT_SIZE}")
-    content = await reader.readexactly(length)
+    try:
+        content = await reader.readexactly(length)
+    except asyncio.IncompleteReadError as e:
+        raise ProtocolError(f"Connection closed after {e.partial!r} bytes") from e
     comma = await reader.read(1)
     if comma != b",":
         raise ProtocolError(f"Expected comma terminator, got {comma!r}")
     return content
+
+
+# Timeout for goodbye message drain in seconds.
+# Short timeout since we're shutting down and connection may be dead.
+GOODBYE_DRAIN_TIMEOUT: float = 2.0
+
+
+async def send_goodbye(writer: asyncio.StreamWriter) -> None:
+    """
+    Send goodbye message to signal clean shutdown.
+    
+    Sends the empty netstring (0:,) which signals intentional disconnect.
+    Errors are silently ignored since the connection may already be dead
+    during shutdown.
+    
+    Args:
+        writer: asyncio StreamWriter to send goodbye on.
+    """
+    try:
+        writer.write(b"0:,")
+        await asyncio.wait_for(writer.drain(), timeout=GOODBYE_DRAIN_TIMEOUT)
+    except (OSError, asyncio.TimeoutError):
+        pass
+
+
+def is_goodbye(content: bytes) -> bool:
+    """
+    Check if content is a goodbye message (empty bytes).
+    
+    The goodbye message is an empty netstring (0:,), which decodes to
+    empty bytes. This signals intentional clean shutdown.
+    
+    Args:
+        content: Decoded netstring content to check.
+    
+    Returns:
+        True if content is empty bytes, False otherwise.
+    """
+    return content == b""
