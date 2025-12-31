@@ -16,6 +16,8 @@ from __future__ import annotations
 import os
 import sys
 
+from Xlib import X
+
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -81,6 +83,6 @@ def create_hidden_window(display: Display) -> Window:
     """
     screen = display.screen()
     window = screen.root.create_window(
-        0, 0, 1, 1, 0, screen.root_depth,
+        0, 0, 1, 1, 0, screen.root_depth, event_mask=X.PropertyChangeMask,
     )
     return window
