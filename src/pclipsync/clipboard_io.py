@@ -115,7 +115,7 @@ async def _wait_for_selection(
     logger = logging.getLogger(__name__)
     
     try:
-        event = await asyncio.wait_for(
+        _ = await asyncio.wait_for(
             asyncio.to_thread(
                 wait_for_event_type, display, X.SelectionNotify, deferred_events
             ),
