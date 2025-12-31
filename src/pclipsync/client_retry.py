@@ -65,6 +65,7 @@ async def connect_to_server(
 async def run_client_connection(
     socket_path: str,
     state: ClipboardState,
+    shutdown_requested: asyncio.Event,
 ) -> None:
     """Connect to server and run sync loop.
 
@@ -75,6 +76,7 @@ async def run_client_connection(
     Args:
         socket_path: Path to the Unix domain socket.
         state: The clipboard synchronization state.
+        shutdown_requested: Event signaling graceful shutdown request.
 
     Note:
         On connection failure, this function calls sys.exit(1) and does
@@ -89,7 +91,7 @@ async def run_client_connection(
         sys.exit(1)
 
     try:
-        await run_sync_loop(state, reader, writer)
+        await run_sync_loop(state, reader, writer, shutdown_requested)
     finally:
         writer.close()
         await writer.wait_closed()

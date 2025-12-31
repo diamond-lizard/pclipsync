@@ -21,6 +21,8 @@ async def handle_client(
     reader: asyncio.StreamReader,
     writer: asyncio.StreamWriter,
     shutdown_event: asyncio.Event,
+    shutdown_requested: asyncio.Event,
+    exception_holder: list[Exception],
 ) -> None:
     """Handle a single client connection.
 
@@ -33,6 +35,8 @@ async def handle_client(
         reader: The asyncio StreamReader for the socket connection.
         writer: The asyncio StreamWriter for the socket connection.
         shutdown_event: Event to set when client disconnects.
+        shutdown_requested: Event signaling graceful shutdown request.
+        exception_holder: List to store exceptions for propagation.
     """
     import logging
 
@@ -43,7 +47,7 @@ async def handle_client(
     logger.debug("Client connected")
 
     try:
-        await run_sync_loop(state, reader, writer)
+        await run_sync_loop(state, reader, writer, shutdown_requested)
     except (ProtocolError, ConnectionError) as e:
         logger.debug("Client disconnected: %s", e)
     finally:

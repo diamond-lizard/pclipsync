@@ -26,7 +26,8 @@ if TYPE_CHECKING:
 async def sync_loop_inner(
     state: ClipboardState,
     reader: asyncio.StreamReader,
-    writer: asyncio.StreamWriter
+    writer: asyncio.StreamWriter,
+    shutdown_requested: asyncio.Event
 ) -> None:
     """Inner sync loop handling X11 and network events.
 
@@ -37,6 +38,7 @@ async def sync_loop_inner(
         state: The clipboard synchronization state.
         reader: The asyncio StreamReader for the socket connection.
         writer: The asyncio StreamWriter for the socket connection.
+        shutdown_requested: Event signaling graceful shutdown request.
     """
     read_task = asyncio.create_task(read_netstring(reader))
     try:

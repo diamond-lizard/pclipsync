@@ -23,6 +23,7 @@ async def run_sync_loop(
     state: ClipboardState,
     reader: asyncio.StreamReader,
     writer: asyncio.StreamWriter,
+    shutdown_requested: asyncio.Event,
 ) -> None:
     """Run the main synchronization event loop.
 
@@ -34,6 +35,7 @@ async def run_sync_loop(
         state: The clipboard synchronization state.
         reader: The asyncio StreamReader for the socket connection.
         writer: The asyncio StreamWriter for the socket connection.
+        shutdown_requested: Event signaling graceful shutdown request.
 
     Raises:
         ProtocolError: On protocol violation from remote.
@@ -47,7 +49,7 @@ async def run_sync_loop(
 
     loop.add_reader(display_fd, on_x11_readable)
     try:
-        await sync_loop_inner(state, reader, writer)
+        await sync_loop_inner(state, reader, writer, shutdown_requested)
     finally:
         loop.remove_reader(display_fd)
 
