@@ -102,9 +102,13 @@ async def process_x11_events(
             handle_selection_request(state.display, sel_event, state.current_content, state.acquisition_time)
         elif type(event).__name__ == "SetSelectionOwnerNotify":
             # XFixes SetSelectionOwnerNotify event - track ownership loss
+            logging.debug("SetSelectionOwnerNotify: selection=%s owner=%s us=%s",
+                event.selection, event.owner.id, state.window.id)
             if event.owner.id != state.window.id:
                 # We lost ownership of this selection
                 state.owned_selections.discard(event.selection)
+                # Clear received hash: content from another app is not echo
+                state.hash_state.clear_received_hash()
                 # Clear acquisition_time only when we own no selections
                 if not state.owned_selections:
                     state.acquisition_time = None

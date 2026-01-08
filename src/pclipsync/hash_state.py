@@ -76,6 +76,21 @@ class HashState:
         """
         self.last_received_hash = hash_value
 
+
+    def clear_received_hash(self) -> None:
+        """
+        Clear the last received hash to allow sending matching content.
+
+        The received hash prevents "echo" where content we just received
+        bounces back. However, this protection should only apply briefly
+        after receiving. Once another application takes clipboard ownership,
+        any content we subsequently read comes from that application, not
+        from echo of our received content.
+
+        Call this when we lose clipboard ownership to another application.
+        """
+        self.last_received_hash = None
+
     def clear(self) -> None:
         """
         Reset hash state to initial values.

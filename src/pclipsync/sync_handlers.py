@@ -73,7 +73,11 @@ async def handle_clipboard_change(
         logger.warning("Failed to mirror to other selection, continuing")
     current_hash = compute_hash(content)
     if not state.hash_state.should_send(current_hash):
-        logger.debug("Skipping duplicate or echo content")
+        sent = state.hash_state.last_sent_hash
+        recv = state.hash_state.last_received_hash
+        logger.debug(
+            "Skipping duplicate or echo: hash=%s sent=%s recv=%s",
+            current_hash[:16], sent[:16] if sent else None, recv[:16] if recv else None)
         return
 
     encoded = encode_netstring(content)
