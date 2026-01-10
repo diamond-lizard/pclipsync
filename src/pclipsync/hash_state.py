@@ -91,6 +91,20 @@ class HashState:
         """
         self.last_received_hash = None
 
+    def clear_sent_hash(self) -> None:
+        """
+        Clear the last sent hash to allow sending matching content.
+
+        The sent hash prevents "duplicate" sends of unchanged content.
+        However, this protection should only apply while we own the clipboard.
+        Once another application takes clipboard ownership, any content we
+        subsequently read comes from that application and should be sent,
+        even if it happens to match something we previously sent.
+
+        Call this when we lose clipboard ownership to another application.
+        """
+        self.last_sent_hash = None
+
     def clear(self) -> None:
         """
         Reset hash state to initial values.

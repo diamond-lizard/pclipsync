@@ -109,6 +109,8 @@ async def process_x11_events(
                 state.owned_selections.discard(event.selection)
                 # Clear received hash: content from another app is not echo
                 state.hash_state.clear_received_hash()
+                # Clear sent hash: content from another app is not duplicate
+                state.hash_state.clear_sent_hash()
                 # Clear acquisition_time only when we own no selections
                 if not state.owned_selections:
                     state.acquisition_time = None
