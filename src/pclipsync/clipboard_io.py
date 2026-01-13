@@ -53,6 +53,7 @@ async def read_clipboard_content(
     selection_atom: int,
     deferred_events: list["Event"],
     x11_event: "asyncio.Event",
+    incr_atom: int,
 ) -> bytes | None:
     """Read clipboard content from the current selection owner.
 
@@ -66,6 +67,7 @@ async def read_clipboard_content(
         selection_atom: The selection atom (CLIPBOARD or PRIMARY).
         deferred_events: List to collect events deferred during polling.
         x11_event: asyncio.Event to signal when events are deferred.
+        incr_atom: The INCR atom for detecting incremental transfers.
 
     Returns:
         Content bytes if successful, None on failure/empty/timeout.
@@ -95,7 +97,7 @@ async def read_clipboard_content(
         
         # Poll for SelectionNotify with timeout
         content = await _wait_for_selection(
-            display, window, prop_atom, deferred_events, x11_event
+            display, window, prop_atom, deferred_events, x11_event, incr_atom
         )
         return content
 
@@ -113,6 +115,7 @@ async def _wait_for_selection(
     prop_atom: int,
     deferred_events: list["Event"],
     x11_event: "asyncio.Event",
+    incr_atom: int,
 ) -> bytes | None:
     """Wait for SelectionNotify and read property data.
     
@@ -125,6 +128,7 @@ async def _wait_for_selection(
         prop_atom: The property atom where data will be stored.
         deferred_events: List to collect events deferred during polling.
         x11_event: asyncio.Event to signal when events are deferred.
+        incr_atom: The INCR atom for detecting incremental transfers.
     
     Returns:
         Content bytes if successful, None on failure/timeout.
@@ -141,14 +145,16 @@ async def _wait_for_selection(
     try:
         _ = await asyncio.wait_for(
             asyncio.to_thread(
-                wait_for_event_type, display, X.SelectionNotify, deferred_events
+                wait_for_event_type, display, X.SelectionNotify, deferred_events, CLIPBOARD_TIMEOUT
             ),
             timeout=CLIPBOARD_TIMEOUT,
         )
         # Signal main loop if events were deferred
         if deferred_events:
             x11_event.set()
-        return _read_selection_property(display, window, prop_atom)
+        result = _read_selection_property(display, window, prop_atom, incr_atom)
+        # For now, extract content from result (INCR handling in Phase 60)
+        return result.content
     except asyncio.TimeoutError:
         # Signal main loop if events were deferred
         if deferred_events:
@@ -158,17 +164,18 @@ async def _wait_for_selection(
 
 
 def _read_selection_property(
-    display: "Display", window: "Window", prop_atom: int
-) -> bytes | None:
+    display: "Display", window: "Window", prop_atom: int, incr_atom: int
+) -> PropertyReadResult:
     """Read and delete selection property from window.
     
     Args:
         display: The X11 display connection.
         window: The window containing the property.
         prop_atom: The property atom to read.
+        incr_atom: The INCR atom for detecting incremental transfers.
     
     Returns:
-        Content bytes if successful, None on failure.
+        PropertyReadResult with content, INCR status, or failure state.
     """
     import logging
     
@@ -178,17 +185,26 @@ def _read_selection_property(
     
     try:
         prop = window.get_full_property(prop_atom, X.AnyPropertyType)
-        window.delete_property(prop_atom)
-        display.flush()
         
         if prop is None:
             logger.debug("Selection property was empty")
-            return None
+            return PropertyReadResult(content=None, is_incr=False)
         
+        # Check for INCR transfer indication
+        if prop.property_type == incr_atom:
+            # DON'T delete property - caller handles deletion as handshake signal
+            estimated_size = int.from_bytes(bytes(prop.value), byteorder="little")
+            logger.debug("INCR transfer detected, estimated size: %d", estimated_size)
+            return PropertyReadResult(content=None, is_incr=True, estimated_size=estimated_size)
+
+        # Normal content - delete property and return content
+        window.delete_property(prop_atom)
+        display.flush()
+
         data = prop.value
         if isinstance(data, str):
-            return data.encode("utf-8")
-        return bytes(data)
+            return PropertyReadResult(content=data.encode("utf-8"), is_incr=False)
+        return PropertyReadResult(content=bytes(data), is_incr=False)
     except Exception as e:
         logger.debug("Failed to read selection property: %s", e)
-        return None
+        return PropertyReadResult(content=None, is_incr=False)
