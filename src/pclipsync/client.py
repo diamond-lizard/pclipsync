@@ -39,6 +39,7 @@ async def run_client(socket_path: str) -> None:
         display=display,
         window=window,
         clipboard_atom=clipboard_atom,
+        incr_atom=display.intern_atom("INCR"),
     )
 
     # Register signal handlers for clean shutdown

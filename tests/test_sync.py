@@ -25,6 +25,7 @@ def mock_clipboard_state() -> MagicMock:
     state.x11_event = asyncio.Event()
     state.owned_selections = set()
     state.clipboard_atom = MagicMock()
+    state.incr_atom = MagicMock()
     return state
 
 

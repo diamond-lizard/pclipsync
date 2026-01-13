@@ -54,6 +54,7 @@ async def run_server(socket_path: str) -> None:
         hash_state=HashState(),
         current_content=b"",
         clipboard_atom=clipboard_atom,
+        incr_atom=display.intern_atom("INCR"),
     )
 
     # Check and prepare socket

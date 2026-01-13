@@ -39,6 +39,7 @@ class ClipboardState:
         x11_event: asyncio.Event signaled when X11 events need processing.
         clipboard_atom: Cached CLIPBOARD atom to avoid X11 round-trips.
         owned_selections: Set of selection atoms pclipsync currently owns.
+        incr_atom: Cached INCR atom for incremental transfer detection.
     """
 
     display: Display
@@ -50,3 +51,4 @@ class ClipboardState:
     x11_event: asyncio.Event = field(default_factory=asyncio.Event)
     clipboard_atom: int = 0
     owned_selections: set[int] = field(default_factory=set)
+    incr_atom: int = 0

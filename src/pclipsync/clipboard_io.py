@@ -18,6 +18,30 @@ if TYPE_CHECKING:
     from Xlib.protocol.rq import Event
     import asyncio
 
+
+from dataclasses import dataclass
+
+
+@dataclass
+class PropertyReadResult:
+    """Result of reading an X11 selection property.
+
+    Encapsulates the result of a property read, distinguishing between:
+    - Normal content (is_incr=False, content contains the bytes)
+    - INCR transfer initiation (is_incr=True, estimated_size set)
+    - Failed read (content=None, is_incr=False)
+
+    Attributes:
+        content: The content bytes, or None if unavailable.
+        is_incr: True if the property indicated INCR transfer.
+        estimated_size: Estimated total size for INCR transfers.
+    """
+
+    content: bytes | None
+    is_incr: bool
+    estimated_size: int = 0
+
+
 # Timeout in seconds for clipboard read operations to prevent hangs
 # when the clipboard owner is unresponsive
 CLIPBOARD_TIMEOUT: float = 2.0
