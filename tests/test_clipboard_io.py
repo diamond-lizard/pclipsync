@@ -243,3 +243,188 @@ class TestReadSelectionProperty:
         assert result.content is None
         assert result.is_incr is False
         assert result.estimated_size == 0
+
+
+class TestHandleIncrTransfer:
+    """Tests for _handle_incr_transfer function."""
+
+    def test_successful_three_chunk_transfer(self) -> None:
+        """Successful 3-chunk INCR transfer assembles buffer correctly."""
+        from unittest.mock import MagicMock, patch
+
+        from pclipsync.clipboard_io import _handle_incr_transfer
+
+        mock_display = MagicMock()
+        mock_window = MagicMock()
+        prop_atom = 123
+        deferred_events: list = []
+        chunk_timeout = 5.0
+
+        # Mock PropertyNotify events for 3 chunks + end marker
+        mock_event = MagicMock()
+
+        # Chunks: "Hello", " ", "World" -> "Hello World"
+        chunks = [b"Hello", b" ", b"World", b""]  # Empty = end marker
+
+        with patch(
+            "pclipsync.selection_utils.wait_for_property_notify",
+            return_value=mock_event,
+        ) as mock_wait, patch(
+            "pclipsync.clipboard_io._read_chunk_property",
+            side_effect=chunks,
+        ) as mock_read:
+            result = _handle_incr_transfer(
+                mock_display, mock_window, prop_atom, deferred_events, chunk_timeout
+            )
+
+        assert result == b"Hello World"
+        # Initial handshake: delete property and flush
+        mock_window.delete_property.assert_called_with(prop_atom)
+        mock_display.flush.assert_called()
+        # wait_for_property_notify called 4 times (3 chunks + end marker)
+        assert mock_wait.call_count == 4
+        # _read_chunk_property called 4 times
+        assert mock_read.call_count == 4
+
+    def test_immediate_zero_length_chunk(self) -> None:
+        """INCR transfer with immediate zero-length chunk returns empty bytes."""
+        from unittest.mock import MagicMock, patch
+
+        from pclipsync.clipboard_io import _handle_incr_transfer
+
+        mock_display = MagicMock()
+        mock_window = MagicMock()
+        prop_atom = 123
+        deferred_events: list = []
+        chunk_timeout = 5.0
+
+        mock_event = MagicMock()
+
+        # Immediate empty chunk = empty content
+        chunks = [b""]
+
+        with patch(
+            "pclipsync.selection_utils.wait_for_property_notify",
+            return_value=mock_event,
+        ) as mock_wait, patch(
+            "pclipsync.clipboard_io._read_chunk_property",
+            side_effect=chunks,
+        ):
+            result = _handle_incr_transfer(
+                mock_display, mock_window, prop_atom, deferred_events, chunk_timeout
+            )
+
+        assert result == b""
+        assert mock_wait.call_count == 1
+
+    def test_timeout_on_second_chunk(self) -> None:
+        """INCR transfer times out on second chunk returns None."""
+        from unittest.mock import MagicMock, patch
+
+        from pclipsync.clipboard_io import _handle_incr_transfer
+
+        mock_display = MagicMock()
+        mock_window = MagicMock()
+        prop_atom = 123
+        deferred_events: list = []
+        chunk_timeout = 5.0
+
+        mock_event = MagicMock()
+
+        # First chunk succeeds, second times out (None from wait_for_property_notify)
+        wait_returns = [mock_event, None]
+        chunks = [b"Hello"]  # Only first chunk returned before timeout
+
+        with patch(
+            "pclipsync.selection_utils.wait_for_property_notify",
+            side_effect=wait_returns,
+        ) as mock_wait, patch(
+            "pclipsync.clipboard_io._read_chunk_property",
+            side_effect=chunks,
+        ):
+            result = _handle_incr_transfer(
+                mock_display, mock_window, prop_atom, deferred_events, chunk_timeout
+            )
+
+        assert result is None
+        # Called twice: once for first chunk, once for second (timed out)
+        assert mock_wait.call_count == 2
+
+    def test_exceeds_max_content_size(self) -> None:
+        """INCR transfer exceeding MAX_CONTENT_SIZE returns None."""
+        from unittest.mock import MagicMock, patch
+
+        from pclipsync.clipboard_io import _handle_incr_transfer
+        from pclipsync.protocol import MAX_CONTENT_SIZE
+
+        mock_display = MagicMock()
+        mock_window = MagicMock()
+        prop_atom = 123
+        deferred_events: list = []
+        chunk_timeout = 5.0
+
+        mock_event = MagicMock()
+
+        # Create chunks that exceed MAX_CONTENT_SIZE
+        # Each chunk is half the max size, so two chunks exceed it
+        chunk_size = (MAX_CONTENT_SIZE // 2) + 1
+        large_chunk = b"x" * chunk_size
+        chunks = [large_chunk, large_chunk]  # Total exceeds MAX_CONTENT_SIZE
+
+        with patch(
+            "pclipsync.selection_utils.wait_for_property_notify",
+            return_value=mock_event,
+        ), patch(
+            "pclipsync.clipboard_io._read_chunk_property",
+            side_effect=chunks,
+        ):
+            result = _handle_incr_transfer(
+                mock_display, mock_window, prop_atom, deferred_events, chunk_timeout
+            )
+
+        assert result is None
+
+    def test_deferred_events_accumulate_selection_requests(self) -> None:
+        """INCR transfer defers SelectionRequest events to deferred_events list."""
+        from unittest.mock import MagicMock, patch, call
+
+        from pclipsync.clipboard_io import _handle_incr_transfer
+
+        mock_display = MagicMock()
+        mock_window = MagicMock()
+        prop_atom = 123
+        deferred_events: list = []
+        chunk_timeout = 5.0
+
+        mock_event = MagicMock()
+
+        # Create a mock SelectionRequest that will be in deferred_events
+        # after wait_for_property_notify processes it
+        mock_selection_request = MagicMock()
+        mock_selection_request.type = "SelectionRequest"
+
+        # wait_for_property_notify adds to deferred_events internally
+        # We simulate this by having the side_effect modify deferred_events
+        def wait_side_effect(*args, **kwargs):
+            # args[3] is deferred_events list
+            args[3].append(mock_selection_request)
+            return mock_event
+
+        chunks = [b"data", b""]  # One chunk + end marker
+
+        with patch(
+            "pclipsync.selection_utils.wait_for_property_notify",
+            side_effect=wait_side_effect,
+        ), patch(
+            "pclipsync.clipboard_io._read_chunk_property",
+            side_effect=chunks,
+        ):
+            result = _handle_incr_transfer(
+                mock_display, mock_window, prop_atom, deferred_events, chunk_timeout
+            )
+
+        assert result == b"data"
+        # Deferred events should have accumulated SelectionRequest events
+        # (one per wait_for_property_notify call = 2 calls for chunk + end marker)
+        assert len(deferred_events) == 2
+        assert all(e.type == "SelectionRequest" for e in deferred_events)

@@ -46,6 +46,9 @@ class PropertyReadResult:
 # when the clipboard owner is unresponsive
 CLIPBOARD_TIMEOUT: float = 2.0
 
+# Timeout in seconds for each INCR chunk during incremental transfers
+INCR_CHUNK_TIMEOUT: float = 5.0
+
 
 async def read_clipboard_content(
     display: Display,
@@ -208,3 +211,118 @@ def _read_selection_property(
     except Exception as e:
         logger.debug("Failed to read selection property: %s", e)
         return PropertyReadResult(content=None, is_incr=False)
+
+
+def _read_chunk_property(
+    display: "Display", window: "Window", prop_atom: int
+) -> bytes | None:
+    """Read and delete a single INCR chunk property.
+
+    Simple property reader for INCR chunks. Returns the raw bytes from
+    the property, or empty bytes for zero-length chunk (end marker).
+    Does NOT check for INCR type (already handled upstream).
+
+    Args:
+        display: The X11 display connection.
+        window: The window containing the property.
+        prop_atom: The property atom to read.
+
+    Returns:
+        Chunk bytes (may be empty for end marker), or None on failure.
+    """
+    import logging
+
+    from Xlib import X
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        prop = window.get_full_property(prop_atom, X.AnyPropertyType)
+        window.delete_property(prop_atom)
+        display.flush()
+
+        if prop is None:
+            # Zero-length chunk signals end of INCR transfer
+            return b""
+
+        data = prop.value
+        if isinstance(data, str):
+            return data.encode("utf-8")
+        return bytes(data)
+    except Exception as e:
+        logger.debug("Failed to read chunk property: %s", e)
+        return None
+
+
+def _handle_incr_transfer(
+    display: "Display",
+    window: "Window",
+    prop_atom: int,
+    deferred_events: list["Event"],
+    chunk_timeout: float,
+) -> bytes | None:
+    """Handle INCR (incremental) clipboard transfer protocol.
+
+    Accumulates chunked content from an INCR transfer. The caller must have
+    already detected INCR (via _read_selection_property) and should call this
+    to receive the actual content in chunks.
+
+    The INCR protocol:
+    1. Caller deletes property to signal readiness for first chunk
+    2. Owner writes chunk data to property, sends PropertyNotify
+    3. We read chunk, append to buffer, delete property
+    4. Repeat until owner sends zero-length chunk (end marker)
+
+    Args:
+        display: The X11 display connection.
+        window: The window receiving property changes.
+        prop_atom: The property atom being used for transfer.
+        deferred_events: List to collect events deferred during transfer.
+        chunk_timeout: Timeout in seconds for each chunk.
+
+    Returns:
+        Complete content bytes on success, None on failure or timeout.
+    """
+    # Initial handshake: delete property to signal readiness for first chunk
+    window.delete_property(prop_atom)
+    display.flush()
+
+
+    from pclipsync.selection_utils import wait_for_property_notify
+    from pclipsync.protocol import MAX_CONTENT_SIZE
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    buffer = bytearray()
+
+    # Chunk accumulation loop
+    while True:
+        # Wait for owner to write next chunk (PropertyNotify)
+        event = wait_for_property_notify(
+            display, window, prop_atom, deferred_events, chunk_timeout
+        )
+        if event is None:
+            # Timeout waiting for chunk - abort transfer
+            logger.warning("INCR chunk timeout after %.1fs", chunk_timeout)
+            return None
+
+        # Read chunk data
+        chunk = _read_chunk_property(display, window, prop_atom)
+        if chunk is None:
+            # Read failure - abort transfer
+            return None
+
+        # Zero-length chunk signals end of transfer
+        if len(chunk) == 0:
+            return bytes(buffer)
+
+        # Append chunk to buffer
+        buffer.extend(chunk)
+
+        # Check accumulated size against limit
+        if len(buffer) > MAX_CONTENT_SIZE:
+            logger.warning(
+                "INCR transfer exceeds %d bytes limit, aborting", MAX_CONTENT_SIZE
+            )
+            return None
