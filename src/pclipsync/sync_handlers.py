@@ -49,7 +49,7 @@ async def handle_clipboard_change(
     
     content = await read_clipboard_content(
         state.display, state.window, selection_atom,
-        state.deferred_events, state.x11_event
+        state.deferred_events, state.x11_event, state.incr_atom
     )
     if content is None or len(content) == 0:
         logger.debug("Clipboard read returned empty/None, skipping")

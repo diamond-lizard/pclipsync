@@ -4,8 +4,7 @@
 Tests for _wait_for_selection and read_clipboard_content functions,
 focusing on deferred event collection during polling.
 """
-import asyncio
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -15,8 +14,7 @@ from Xlib import X
 class TestWaitForSelectionDeferredEvents:
     """Tests for event deferral during _wait_for_selection polling."""
 
-    @pytest.mark.asyncio
-    async def test_defers_selection_request_events(self) -> None:
+    def test_defers_selection_request_events(self) -> None:
         """SelectionRequest events are added to deferred_events during polling."""
         from pclipsync.clipboard_io import _wait_for_selection
 
@@ -43,17 +41,15 @@ class TestWaitForSelectionDeferredEvents:
         mock_window.get_full_property.return_value = mock_prop
 
         deferred_events: list[MagicMock] = []
-        x11_event = asyncio.Event()
 
-        await _wait_for_selection(
-            mock_display, mock_window, prop_atom, deferred_events, x11_event, 999
+        _wait_for_selection(
+            mock_display, mock_window, prop_atom, deferred_events, 999, 5.0
         )
 
         assert len(deferred_events) == 1
         assert deferred_events[0] is sel_request
 
-    @pytest.mark.asyncio
-    async def test_defers_owner_notify_events(self) -> None:
+    def test_defers_owner_notify_events(self) -> None:
         """SetSelectionOwnerNotify events are added to deferred_events."""
         from pclipsync.clipboard_io import _wait_for_selection
 
@@ -78,49 +74,13 @@ class TestWaitForSelectionDeferredEvents:
         mock_window.get_full_property.return_value = mock_prop
 
         deferred_events: list[MagicMock] = []
-        x11_event = asyncio.Event()
 
-        await _wait_for_selection(
-            mock_display, mock_window, prop_atom, deferred_events, x11_event, 999
+        _wait_for_selection(
+            mock_display, mock_window, prop_atom, deferred_events, 999, 5.0
         )
 
         assert len(deferred_events) == 1
         assert deferred_events[0] is owner_event
-
-    @pytest.mark.asyncio
-    async def test_signals_x11_event_when_events_deferred(self) -> None:
-        """x11_event.set() is called when events are deferred."""
-        from pclipsync.clipboard_io import _wait_for_selection
-
-        mock_display = MagicMock()
-        mock_window = MagicMock()
-        prop_atom = 123
-
-        sel_request = MagicMock()
-        sel_request.type = X.SelectionRequest
-
-        sel_notify = MagicMock()
-        sel_notify.type = X.SelectionNotify
-
-        mock_display.pending_events.side_effect = [1, 1, 0]
-        mock_display.next_event.side_effect = [sel_request, sel_notify]
-
-        mock_prop = MagicMock()
-        mock_prop.value = b"test"
-        mock_prop.property_type = 0  # Not INCR
-        mock_window.get_full_property.return_value = mock_prop
-
-        deferred_events: list[MagicMock] = []
-        x11_event = asyncio.Event()
-
-        assert not x11_event.is_set()
-
-        await _wait_for_selection(
-            mock_display, mock_window, prop_atom, deferred_events, x11_event, 999
-        )
-
-        assert x11_event.is_set()
-
 
 class TestPropertyReadResult:
     """Tests for PropertyReadResult dataclass behavior."""
@@ -428,3 +388,76 @@ class TestHandleIncrTransfer:
         # (one per wait_for_property_notify call = 2 calls for chunk + end marker)
         assert len(deferred_events) == 2
         assert all(e.type == "SelectionRequest" for e in deferred_events)
+
+
+class TestWaitForSelectionIncrIntegration:
+    """Integration tests for INCR handling in _wait_for_selection."""
+
+    def test_incr_path_returns_accumulated_content(self) -> None:
+        """INCR detection triggers _handle_incr_transfer and returns content."""
+        from unittest.mock import MagicMock, patch
+
+        from pclipsync.clipboard_io import _wait_for_selection, PropertyReadResult
+
+        mock_display = MagicMock()
+        mock_window = MagicMock()
+        prop_atom = 123
+        incr_atom = 456
+        deferred_events: list = []
+
+        # Mock SelectionNotify event
+        mock_display.pending_events.side_effect = [1, 0]
+        sel_notify = MagicMock()
+        sel_notify.type = 31  # X.SelectionNotify
+        mock_display.next_event.return_value = sel_notify
+
+        # Mock property read to return INCR
+        incr_result = PropertyReadResult(content=None, is_incr=True, estimated_size=1024)
+        with patch(
+            "pclipsync.clipboard_io._read_selection_property",
+            return_value=incr_result,
+        ) as mock_read, patch(
+            "pclipsync.clipboard_io._handle_incr_transfer",
+            return_value=b"INCR content",
+        ) as mock_incr:
+            result = _wait_for_selection(
+                mock_display, mock_window, prop_atom, deferred_events, incr_atom, 5.0
+            )
+
+        assert result == b"INCR content"
+        mock_read.assert_called_once()
+        mock_incr.assert_called_once()
+
+    def test_non_incr_path_returns_content_directly(self) -> None:
+        """Non-INCR detection returns content from PropertyReadResult."""
+        from unittest.mock import MagicMock, patch
+
+        from pclipsync.clipboard_io import _wait_for_selection, PropertyReadResult
+
+        mock_display = MagicMock()
+        mock_window = MagicMock()
+        prop_atom = 123
+        incr_atom = 456
+        deferred_events: list = []
+
+        # Mock SelectionNotify event
+        mock_display.pending_events.side_effect = [1, 0]
+        sel_notify = MagicMock()
+        sel_notify.type = 31  # X.SelectionNotify
+        mock_display.next_event.return_value = sel_notify
+
+        # Mock property read to return normal content (non-INCR)
+        normal_result = PropertyReadResult(content=b"normal content", is_incr=False)
+        with patch(
+            "pclipsync.clipboard_io._read_selection_property",
+            return_value=normal_result,
+        ) as mock_read, patch(
+            "pclipsync.clipboard_io._handle_incr_transfer",
+        ) as mock_incr:
+            result = _wait_for_selection(
+                mock_display, mock_window, prop_atom, deferred_events, incr_atom, 5.0
+            )
+
+        assert result == b"normal content"
+        mock_read.assert_called_once()
+        mock_incr.assert_not_called()

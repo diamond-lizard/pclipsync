@@ -98,10 +98,16 @@ async def read_clipboard_content(
         window.convert_selection(selection_atom, utf8_atom, prop_atom, X.CurrentTime)
         display.flush()
         
-        # Poll for SelectionNotify with timeout
-        content = await _wait_for_selection(
-            display, window, prop_atom, deferred_events, x11_event, incr_atom
+        # Wait for SelectionNotify and handle property/INCR in blocking thread
+        content = await asyncio.to_thread(
+            _wait_for_selection,
+            display, window, prop_atom, deferred_events, incr_atom, CLIPBOARD_TIMEOUT
         )
+
+        # Signal main loop if events were deferred (must be in async context)
+        if deferred_events:
+            x11_event.set()
+
         return content
 
     except asyncio.TimeoutError:
@@ -112,59 +118,59 @@ async def read_clipboard_content(
         return None
 
 
-async def _wait_for_selection(
+def _wait_for_selection(
     display: "Display",
     window: "Window",
     prop_atom: int,
     deferred_events: list["Event"],
-    x11_event: "asyncio.Event",
     incr_atom: int,
+    timeout: float,
 ) -> bytes | None:
-    """Wait for SelectionNotify and read property data.
-    
-    Uses wait_for_event_type to poll for SelectionNotify, with asyncio
-    timeout handling. Signals x11_event if events were deferred.
-    
+    """Wait for SelectionNotify, read property, handle INCR if needed.
+
+    Blocking function that waits for SelectionNotify event, reads the
+    selection property, and handles INCR transfers if detected. All X11
+    operations run in the calling thread (per DEC-100).
+
     Args:
         display: The X11 display connection.
         window: The window that requested the selection.
         prop_atom: The property atom where data will be stored.
         deferred_events: List to collect events deferred during polling.
-        x11_event: asyncio.Event to signal when events are deferred.
         incr_atom: The INCR atom for detecting incremental transfers.
-    
+        timeout: Maximum seconds to wait for SelectionNotify.
+
     Returns:
         Content bytes if successful, None on failure/timeout.
     """
-    import asyncio
     import logging
-    
+
     from Xlib import X
-    
+
     from pclipsync.selection_utils import wait_for_event_type
-    
+
     logger = logging.getLogger(__name__)
-    
-    try:
-        _ = await asyncio.wait_for(
-            asyncio.to_thread(
-                wait_for_event_type, display, X.SelectionNotify, deferred_events, CLIPBOARD_TIMEOUT
-            ),
-            timeout=CLIPBOARD_TIMEOUT,
-        )
-        # Signal main loop if events were deferred
-        if deferred_events:
-            x11_event.set()
-        result = _read_selection_property(display, window, prop_atom, incr_atom)
-        # For now, extract content from result (INCR handling in Phase 60)
-        return result.content
-    except asyncio.TimeoutError:
-        # Signal main loop if events were deferred
-        if deferred_events:
-            x11_event.set()
+
+    # Wait for SelectionNotify event (blocking with timeout)
+    event = wait_for_event_type(
+        display, X.SelectionNotify, deferred_events, timeout
+    )
+    if event is None:
         logger.debug("Timeout waiting for SelectionNotify")
         return None
 
+    # Read the selection property
+    result = _read_selection_property(display, window, prop_atom, incr_atom)
+
+    # Handle INCR transfer if detected
+    if result.is_incr:
+        logger.debug("Starting INCR transfer")
+        return _handle_incr_transfer(
+            display, window, prop_atom, deferred_events, INCR_CHUNK_TIMEOUT
+        )
+
+    # Normal (non-INCR) content
+    return result.content
 
 def _read_selection_property(
     display: "Display", window: "Window", prop_atom: int, incr_atom: int
