@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from Xlib.display import Display
     from Xlib.xobject.drawable import Window
     from Xlib.protocol.rq import Event
+    from pclipsync.clipboard_selection import IncrSendState
 
 
 @dataclass
@@ -40,6 +41,8 @@ class ClipboardState:
         clipboard_atom: Cached CLIPBOARD atom to avoid X11 round-trips.
         owned_selections: Set of selection atoms pclipsync currently owns.
         incr_atom: Cached INCR atom for incremental transfer detection.
+        pending_incr_sends: Dict mapping (requestor_id, property_atom) to
+            IncrSendState for tracking in-progress INCR send transfers.
     """
 
     display: Display
@@ -52,3 +55,6 @@ class ClipboardState:
     clipboard_atom: int = 0
     owned_selections: set[int] = field(default_factory=set)
     incr_atom: int = 0
+    pending_incr_sends: dict[tuple[int, int], IncrSendState] = field(
+        default_factory=dict
+    )

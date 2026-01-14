@@ -26,6 +26,7 @@ def mock_clipboard_state() -> MagicMock:
     state.deferred_events = []
     state.x11_event = asyncio.Event()
     state.owned_selections = set()
+    state.pending_incr_sends = {}
     return state
 
 
@@ -129,6 +130,7 @@ async def test_read_task_not_cancelled_when_x11_event_fires() -> None:
     reader = MagicMock()
     writer = AsyncMock()
     state.x11_event = asyncio.Event()
+    state.pending_incr_sends = {}
     shutdown_requested = asyncio.Event()
 
     with patch(
@@ -184,6 +186,7 @@ async def test_new_read_task_created_after_previous_completes() -> None:
     writer = AsyncMock()
     state.x11_event = asyncio.Event()
     shutdown_requested = asyncio.Event()
+    state.pending_incr_sends = {}
 
     with patch(
         "pclipsync.sync_loop_inner.read_netstring", side_effect=mock_read_netstring
@@ -230,6 +233,7 @@ async def test_sync_loop_returns_cleanly_on_shutdown_requested() -> None:
     writer = AsyncMock()
     state.x11_event = asyncio.Event()
     shutdown_requested = asyncio.Event()
+    state.pending_incr_sends = {}
 
     with patch(
         "pclipsync.sync_loop_inner.read_netstring", side_effect=mock_read_netstring
@@ -269,6 +273,7 @@ async def test_sync_loop_returns_cleanly_on_goodbye_received() -> None:
     writer = AsyncMock()
     state.x11_event = asyncio.Event()
     shutdown_requested = asyncio.Event()
+    state.pending_incr_sends = {}
 
     with patch(
         "pclipsync.sync_loop_inner.read_netstring", side_effect=mock_read_netstring

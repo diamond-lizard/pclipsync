@@ -16,6 +16,7 @@ def mock_state() -> MagicMock:
     state.display = MagicMock()
     state.window = MagicMock()
     state.current_content = b""
+    state.pending_incr_sends = {}
     return state
 
 

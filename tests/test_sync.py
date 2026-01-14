@@ -26,6 +26,7 @@ def mock_clipboard_state() -> MagicMock:
     state.owned_selections = set()
     state.clipboard_atom = MagicMock()
     state.incr_atom = MagicMock()
+    state.pending_incr_sends = {}
     return state
 
 
