@@ -352,8 +352,90 @@ def handle_selection_request(
     display.flush()
 
 
+def is_incr_send_event(
+    event: "Event", pending_incr_sends: dict[tuple[int, int], IncrSendState] | None
+) -> tuple[bool, str | None]:
+    """Check if an event is related to an in-progress INCR send transfer.
+
+    Examines PropertyNotify (with PropertyDelete state) and DestroyNotify
+    events to determine if they match a pending INCR send transfer.
+
+    Args:
+        event: The X11 event to check.
+        pending_incr_sends: Dict tracking in-progress INCR send transfers.
+
+    Returns:
+        Tuple of (is_match, event_type) where event_type is 'property_delete',
+        'destroy', or None if not a matching event.
+    """
+    from Xlib import X
+
+    if not pending_incr_sends:
+        return (False, None)
+
+    # Check for PropertyNotify with PropertyDelete state
+    if event.type == X.PropertyNotify and event.state == X.PropertyDelete:
+        transfer_key = (event.window.id, event.atom)
+        if transfer_key in pending_incr_sends:
+            return (True, "property_delete")
+
+    # Check for DestroyNotify matching any pending transfer's requestor
+    if event.type == X.DestroyNotify:
+        for (requestor_id, _) in pending_incr_sends:
+            if event.window.id == requestor_id:
+                return (True, "destroy")
+
+    return (False, None)
+
+def handle_incr_send_event(
+    display: "Display",
+    event: "Event",
+    event_type: str,
+    pending_incr_sends: dict[tuple[int, int], IncrSendState],
+) -> None:
+    """Handle an INCR send-related event.
+
+    Processes PropertyNotify (property_delete) and DestroyNotify events
+    for in-progress INCR send transfers.
+
+    Args:
+        display: The X11 display connection.
+        event: The X11 event.
+        event_type: Either 'property_delete' or 'destroy'.
+        pending_incr_sends: Dict tracking in-progress INCR send transfers.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    if event_type == "destroy":
+        # Requestor window was destroyed - clean up all transfers for it
+        logger.debug("INCR send: requestor window destroyed: %s", event.window.id)
+        # Collect keys to remove (avoid modifying dict during iteration)
+        keys_to_remove = [
+            key for key in pending_incr_sends if key[0] == event.window.id
+        ]
+        for key in keys_to_remove:
+            state = pending_incr_sends[key]
+            unsubscribe_incr_requestor(display, state, key, pending_incr_sends)
+        return
+
+    # event_type == "property_delete"
+    transfer_key = (event.window.id, event.atom)
+    transfer_state = pending_incr_sends.get(transfer_key)
+    if transfer_state is None:
+        return
+
+    if transfer_state.completion_sent:
+        # Final acknowledgment - requestor deleted zero-length property
+        logger.debug("INCR send: final ack received, cleaning up: %s", transfer_key)
+        unsubscribe_incr_requestor(display, transfer_state, transfer_key, pending_incr_sends)
+    else:
+        # Requestor deleted property - send next chunk
+        send_incr_chunk(display, transfer_state, transfer_key, pending_incr_sends)
+
+
 def process_pending_events(
-    display: Display, deferred_events: list["Event"] | None = None
+    display: Display, deferred_events: list["Event"] | None = None, pending_incr_sends: dict[tuple[int, int], IncrSendState] | None = None
 ) -> list[Event]:
     """Process only events already pending without blocking.
 
@@ -365,6 +447,8 @@ def process_pending_events(
         display: The X11 display connection.
         deferred_events: Optional list of events deferred during clipboard
             reads. These will be drained and prepended to the result.
+        pending_incr_sends: Optional dict tracking in-progress INCR send
+            transfers. Used for routing PropertyNotify events.
 
     Returns:
         List of pending events for processing.
@@ -381,6 +465,11 @@ def process_pending_events(
     while display.pending_events() > 0:
         event = display.next_event()
         logger.debug("X11 event type=%s class=%s", event.type, type(event).__name__)
+        # Check for INCR send events first
+        is_match, evt_type = is_incr_send_event(event, pending_incr_sends)
+        if is_match and pending_incr_sends is not None and evt_type is not None:
+            handle_incr_send_event(display, event, evt_type, pending_incr_sends)
+            continue
         # Collect SelectionRequest and XFixes events
         if event.type == X.SelectionRequest:
             events.append(event)
