@@ -91,8 +91,110 @@ def needs_incr_transfer(content: bytes, display: "Display") -> bool:
     """
     return len(content) > get_max_property_size(display)
 
+
+def unsubscribe_requestor_events(display: "Display", requestor: "Window") -> None:
+    """Clear event masks on a requestor window.
+
+    Removes PropertyNotify and StructureNotify event subscriptions from
+    a requestor window. If the window was destroyed, the X11 error will
+    be printed to stderr but will not raise a Python exception.
+
+    Args:
+        display: The X11 display connection.
+        requestor: The requestor window to unsubscribe from.
+    """
+    requestor.change_attributes(event_mask=0)
+    display.flush()
+
+def initiate_incr_send(
+    display: "Display",
+    event: "SelectionRequest",
+    content: bytes,
+    pending_incr_sends: dict[tuple[int, int], IncrSendState],
+    incr_atom: int,
+) -> None:
+    """Initiate an INCR transfer for large clipboard content.
+
+    Subscribes to PropertyNotify and StructureNotify events on the requestor
+    window, writes INCR type with content length, creates transfer state,
+    and sends SelectionNotify to begin the transfer.
+
+    Args:
+        display: The X11 display connection.
+        event: The SelectionRequest event.
+        content: The content bytes to send via INCR.
+        pending_incr_sends: Dict tracking in-progress INCR send transfers.
+        incr_atom: The INCR atom for type field.
+    """
+    from Xlib import X
+    from Xlib.protocol.event import SelectionNotify as SelectionNotifyEvent
+    import logging
+    import time
+    logger = logging.getLogger(__name__)
+
+    # Subscribe to PropertyNotify and StructureNotify on requestor window
+    event.requestor.change_attributes(
+        event_mask=X.PropertyChangeMask | X.StructureNotifyMask
+    )
+
+    try:
+        # Write INCR type with content length as value
+        event.requestor.change_property(
+            event.property, incr_atom, 32, [len(content)]
+        )
+
+        # Create transfer state entry
+        transfer_key = (event.requestor.id, event.property)
+        pending_incr_sends[transfer_key] = IncrSendState(
+            requestor=event.requestor,
+            property_atom=event.property,
+            target_atom=event.target,
+            selection_atom=event.selection,
+            content=content,
+            offset=0,
+            start_time=time.time(),
+        )
+
+        # Send SelectionNotify to tell requestor property is ready
+        event.requestor.send_event(
+            SelectionNotifyEvent(
+                time=event.time,
+                requestor=event.requestor.id,
+                selection=event.selection,
+                target=event.target,
+                property=event.property,
+            ),
+            event_mask=0,
+        )
+        display.flush()
+        logger.debug("Initiated INCR send: requestor=%s property=%s size=%s",
+            event.requestor.id, event.property, len(content))
+
+    except Exception:
+        # Clean up subscription on error
+        unsubscribe_requestor_events(display, event.requestor)
+        # Refuse the request
+        event.property = X.NONE
+        event.requestor.send_event(
+            SelectionNotifyEvent(
+                time=event.time,
+                requestor=event.requestor.id,
+                selection=event.selection,
+                target=event.target,
+                property=event.property,
+            ),
+            event_mask=0,
+        )
+        display.flush()
+        raise
+
 def handle_selection_request(
-    display: Display, event: SelectionRequest, content: bytes, acquisition_time: int | None
+    display: Display,
+    event: SelectionRequest,
+    content: bytes,
+    acquisition_time: int | None,
+    pending_incr_sends: dict[tuple[int, int], IncrSendState],
+    incr_atom: int,
 ) -> None:
     """Respond to SelectionRequest events when owning selections.
 
@@ -127,10 +229,18 @@ def handle_selection_request(
             event.property, Xatom.ATOM, 32, targets
         )
     elif event.target in (utf8_atom, Xatom.STRING):
-        # Return content
-        event.requestor.change_property(
-            event.property, event.target, 8, content
-        )
+        # Return content - check if INCR transfer is needed
+        if not needs_incr_transfer(content, display):
+            # Small content - send directly
+            event.requestor.change_property(
+                event.property, event.target, 8, content
+            )
+        else:
+            # Large content - use INCR protocol
+            initiate_incr_send(
+                display, event, content, pending_incr_sends, incr_atom
+            )
+            return  # INCR sends its own SelectionNotify
     elif event.target == timestamp_atom:
         # Return acquisition timestamp as 32-bit integer
         if acquisition_time is not None:

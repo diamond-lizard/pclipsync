@@ -11,6 +11,7 @@ def mock_display() -> MagicMock:
     display = MagicMock()
     atom_map = {"TARGETS": 100, "UTF8_STRING": 101, "TIMESTAMP": 102}
     display.intern_atom.side_effect = lambda name: atom_map.get(name, 999)
+    display.info.max_request_length = 65536  # Large enough for small content
     return display
 
 
@@ -35,7 +36,7 @@ def test_utf8_string_still_works(
     mock_event.target = 101  # UTF8_STRING atom
     content = b"test clipboard content"
 
-    handle_selection_request(mock_display, mock_event, content, None)
+    handle_selection_request(mock_display, mock_event, content, None, {}, 0)
 
     mock_event.requestor.change_property.assert_called_once()
     call_args = mock_event.requestor.change_property.call_args
@@ -56,7 +57,7 @@ def test_unsupported_target_refused(
 
     mock_event.target = 999  # Unknown target
 
-    handle_selection_request(mock_display, mock_event, b"test", None)
+    handle_selection_request(mock_display, mock_event, b"test", None, {}, 0)
 
     # Property should be set to X.NONE
     assert mock_event.property == X.NONE
@@ -72,7 +73,7 @@ def test_timestamp_refused_when_acquisition_time_none(
     # Request TIMESTAMP
     mock_event.target = 102  # TIMESTAMP atom
 
-    handle_selection_request(mock_display, mock_event, b"test", None)
+    handle_selection_request(mock_display, mock_event, b"test", None, {}, 0)
 
     # Property should be set to X.NONE (refused)
     assert mock_event.property == X.NONE

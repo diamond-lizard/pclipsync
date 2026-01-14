@@ -12,6 +12,7 @@ def mock_display() -> MagicMock:
     # Return distinct atom values for each interned atom
     atom_map = {"TARGETS": 100, "UTF8_STRING": 101, "TIMESTAMP": 102}
     display.intern_atom.side_effect = lambda name: atom_map.get(name, 999)
+    display.info.max_request_length = 65536  # Large enough for small content
     return display
 
 
@@ -36,7 +37,7 @@ def test_targets_includes_timestamp(
     # Request TARGETS (use mock_display.intern_atom return value)
     mock_event.target = 100  # TARGETS atom from fixture
 
-    handle_selection_request(mock_display, mock_event, b"test content", None)
+    handle_selection_request(mock_display, mock_event, b"test content", None, {}, 0)
 
     # Verify change_property was called with targets list including TIMESTAMP
     mock_event.requestor.change_property.assert_called_once()
@@ -56,7 +57,7 @@ def test_timestamp_request_returns_integer(
     # Request TIMESTAMP
     mock_event.target = 102  # TIMESTAMP atom
 
-    handle_selection_request(mock_display, mock_event, b"test content", 555666777)
+    handle_selection_request(mock_display, mock_event, b"test content", 555666777, {}, 0)
 
     # Verify change_property was called with INTEGER type and acquisition_time
     mock_event.requestor.change_property.assert_called_once()
@@ -78,7 +79,7 @@ def test_timestamp_request_has_valid_property(
     mock_event.target = 102  # TIMESTAMP atom
     original_property = mock_event.property
 
-    handle_selection_request(mock_display, mock_event, b"test content", 555666777)
+    handle_selection_request(mock_display, mock_event, b"test content", 555666777, {}, 0)
 
     # Property should NOT be set to X.NONE (which would indicate refusal)
     # The original property value should be preserved

@@ -99,7 +99,14 @@ async def process_x11_events(
     for event in events:
         if event.type == X.SelectionRequest:
             sel_event = cast("SelectionRequest", event)
-            handle_selection_request(state.display, sel_event, state.current_content, state.acquisition_time)
+            handle_selection_request(
+                state.display,
+                sel_event,
+                state.current_content,
+                state.acquisition_time,
+                state.pending_incr_sends,
+                state.incr_atom,
+            )
         elif type(event).__name__ == "SetSelectionOwnerNotify":
             # XFixes SetSelectionOwnerNotify event - track ownership loss
             logging.debug("SetSelectionOwnerNotify: selection=%s owner=%s us=%s",
