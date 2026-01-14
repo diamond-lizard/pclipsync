@@ -6,3 +6,12 @@ __pycache__/
 
 # Build artifacts
 *.pyz
+
+# Others
+logs
+make-output.txt
+plan
+reference
+architecture
+bin
+.github
