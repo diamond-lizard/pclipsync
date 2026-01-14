@@ -5,11 +5,13 @@ Provides fixtures for X11 display setup, temporary socket paths,
 and hash state initialization.
 """
 
+import asyncio
 import os
 import subprocess
 import tempfile
 from collections.abc import Generator
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -24,6 +26,29 @@ def has_display() -> bool:
 def hash_state() -> HashState:
     """Create a fresh HashState instance for testing."""
     return HashState()
+
+
+@pytest.fixture
+def mock_clipboard_state() -> MagicMock:
+    """Create a mock ClipboardState for testing."""
+    state = MagicMock()
+    state.hash_state = HashState()
+    state.display = MagicMock()
+    state.window = MagicMock()
+    state.window.id = 12345
+    state.current_content = b""
+    state.acquisition_time = None
+    state.deferred_events = []
+    state.x11_event = asyncio.Event()
+    state.owned_selections = set()
+    state.pending_incr_sends = {}
+    return state
+
+
+@pytest.fixture
+def mock_writer() -> AsyncMock:
+    """Create a mock StreamWriter for testing."""
+    return AsyncMock()
 
 
 @pytest.fixture
