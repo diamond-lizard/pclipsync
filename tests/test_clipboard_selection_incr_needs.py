@@ -9,7 +9,7 @@ def test_needs_incr_transfer_false_for_small_content() -> None:
 
     mock_display = MagicMock()
     # Set max_request_length to 65536 (256KB max property size)
-    mock_display.info.max_request_length = 65536
+    mock_display.display.info.max_request_length = 65536
 
     # Small content should not need INCR
     small_content = b"Hello, World!"
@@ -22,7 +22,7 @@ def test_needs_incr_transfer_true_for_large_content() -> None:
 
     mock_display = MagicMock()
     # Set max_request_length to 1000 (4000 bytes max, ~3600 with safety margin)
-    mock_display.info.max_request_length = 1000
+    mock_display.display.info.max_request_length = 1000
 
     # Calculate threshold (1000 * 4 * 0.9 = 3600)
     threshold = int(1000 * 4 * INCR_SAFETY_MARGIN)

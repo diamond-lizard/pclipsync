@@ -13,7 +13,7 @@ def test_handle_selection_request_large_content_initiates_incr() -> None:
 
     mock_display = MagicMock()
     # Set max_request_length low so content exceeds threshold
-    mock_display.info.max_request_length = 100  # 400 bytes max, ~360 with margin
+    mock_display.display.info.max_request_length = 100  # 400 bytes max, ~360 with margin
 
     mock_event = MagicMock()
     mock_event.requestor = MagicMock()

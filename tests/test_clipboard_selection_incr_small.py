@@ -9,7 +9,7 @@ def test_handle_selection_request_small_content_uses_direct_change_property() ->
 
     mock_display = MagicMock()
     # Set max_request_length high enough that content is "small"
-    mock_display.info.max_request_length = 65536  # 256KB max
+    mock_display.display.info.max_request_length = 65536  # 256KB max
 
     mock_event = MagicMock()
     mock_event.target = mock_display.intern_atom.return_value  # UTF8_STRING

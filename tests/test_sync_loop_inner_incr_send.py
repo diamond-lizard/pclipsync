@@ -15,7 +15,7 @@ def test_complete_incr_send_flow() -> None:
 
     mock_display = MagicMock()
     # Configure max_request_length to trigger INCR for our content
-    mock_display.info.max_request_length = 65536
+    mock_display.display.info.max_request_length = 65536
 
     mock_requestor = MagicMock()
     mock_requestor.id = 12345
@@ -124,7 +124,7 @@ def test_concurrent_incr_sends_to_two_requestors() -> None:
     )
 
     mock_display = MagicMock()
-    mock_display.info.max_request_length = 65536
+    mock_display.display.info.max_request_length = 65536
 
     # Create two different requestors
     mock_requestor1 = MagicMock()
@@ -256,7 +256,7 @@ def test_small_content_selection_request_regression() -> None:
 
     mock_display = MagicMock()
     # Set max_request_length high enough that small content won't trigger INCR
-    mock_display.info.max_request_length = 65536
+    mock_display.display.info.max_request_length = 65536
 
     mock_requestor = MagicMock()
     mock_requestor.id = 12345

@@ -13,7 +13,7 @@ def test_incr_response_has_correct_type_and_size() -> None:
 
     mock_display = MagicMock()
     # Set max_request_length low so content exceeds threshold
-    mock_display.info.max_request_length = 100
+    mock_display.display.info.max_request_length = 100
 
     mock_event = MagicMock()
     mock_event.requestor = MagicMock()

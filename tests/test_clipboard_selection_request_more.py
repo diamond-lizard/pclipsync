@@ -11,7 +11,7 @@ def mock_display() -> MagicMock:
     display = MagicMock()
     atom_map = {"TARGETS": 100, "UTF8_STRING": 101, "TIMESTAMP": 102}
     display.intern_atom.side_effect = lambda name: atom_map.get(name, 999)
-    display.info.max_request_length = 65536  # Large enough for small content
+    display.display.info.max_request_length = 65536  # Large enough for small content
     return display
 
 
