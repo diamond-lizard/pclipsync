@@ -48,7 +48,10 @@ def mock_clipboard_state() -> MagicMock:
 @pytest.fixture
 def mock_writer() -> AsyncMock:
     """Create a mock StreamWriter for testing."""
-    return AsyncMock()
+    writer = AsyncMock()
+    writer.write = MagicMock()
+    writer.drain = AsyncMock()
+    return writer
 
 
 @pytest.fixture
