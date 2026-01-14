@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, cast
 
 from Xlib import X
 
-from pclipsync.clipboard_selection import handle_selection_request, process_pending_events
+from pclipsync.clipboard_selection import (cleanup_incr_sends_on_ownership_loss, handle_selection_request, process_pending_events)
 from pclipsync.protocol import read_netstring, send_goodbye, is_goodbye
 from pclipsync.sync_handlers import handle_clipboard_change, handle_incoming_content
 
@@ -114,6 +114,10 @@ async def process_x11_events(
             if event.owner.id != state.window.id:
                 # We lost ownership of this selection
                 state.owned_selections.discard(event.selection)
+                # Clean up pending INCR sends for this selection
+                cleanup_incr_sends_on_ownership_loss(
+                    state.display, event.selection, state.pending_incr_sends
+                )
                 # Clear received hash: content from another app is not echo
                 state.hash_state.clear_received_hash()
                 # Clear sent hash: content from another app is not duplicate
