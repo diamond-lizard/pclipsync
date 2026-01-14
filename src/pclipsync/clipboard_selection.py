@@ -72,7 +72,7 @@ def get_max_property_size(display: "Display") -> int:
     """
     # max_request_length is in 4-byte units; multiply by 4 for bytes
     # Apply safety margin to avoid edge cases near the limit
-    max_bytes = display.info.max_request_length * 4 # type: ignore[attr-defined]
+    max_bytes = display.display.info.max_request_length * 4 # type: ignore[attr-defined]
     return int(max_bytes * INCR_SAFETY_MARGIN)
 
 
