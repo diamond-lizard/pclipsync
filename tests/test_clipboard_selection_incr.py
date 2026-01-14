@@ -192,3 +192,288 @@ def test_incr_response_has_correct_type_and_size() -> None:
     assert notify_event.property == mock_event.property
     assert notify_event.target == mock_event.target
     assert notify_event.selection == mock_event.selection
+
+
+def test_send_incr_chunk_first_chunk() -> None:
+    """Test send_incr_chunk sends correct first chunk from offset 0."""
+    from pclipsync.clipboard_selection import (
+        send_incr_chunk,
+        IncrSendState,
+        INCR_CHUNK_SIZE,
+    )
+    from unittest.mock import MagicMock
+
+    mock_display = MagicMock()
+    mock_requestor = MagicMock()
+    mock_requestor.id = 12345
+
+    # Create content larger than one chunk
+    content = b"x" * (INCR_CHUNK_SIZE + 100)
+
+    state = IncrSendState(
+        requestor=mock_requestor,
+        property_atom=123,
+        target_atom=456,
+        selection_atom=789,
+        content=content,
+        offset=0,
+        start_time=0.0,
+    )
+
+    transfer_key = (mock_requestor.id, 123)
+    pending_incr_sends = {transfer_key: state}
+
+    send_incr_chunk(mock_display, state, transfer_key, pending_incr_sends)
+
+    # Verify first chunk was written
+    expected_chunk = content[:INCR_CHUNK_SIZE]
+    mock_requestor.change_property.assert_called_once_with(
+        123,  # property_atom
+        456,  # target_atom
+        8,    # format
+        expected_chunk,
+    )
+
+    # Verify offset was updated
+    assert state.offset == INCR_CHUNK_SIZE
+
+    # Verify completion_sent is still False
+    assert state.completion_sent is False
+
+    # Verify flush was called
+    mock_display.flush.assert_called_once()
+
+
+def test_send_incr_chunk_subsequent_chunk() -> None:
+    """Test send_incr_chunk sends correct subsequent chunk with offset."""
+    from pclipsync.clipboard_selection import (
+        send_incr_chunk,
+        IncrSendState,
+        INCR_CHUNK_SIZE,
+    )
+    from unittest.mock import MagicMock
+
+    mock_display = MagicMock()
+    mock_requestor = MagicMock()
+    mock_requestor.id = 12345
+
+    # Create content larger than two chunks
+    content = b"x" * (INCR_CHUNK_SIZE * 2 + 100)
+
+    # Start from offset = INCR_CHUNK_SIZE (simulating second chunk)
+    state = IncrSendState(
+        requestor=mock_requestor,
+        property_atom=123,
+        target_atom=456,
+        selection_atom=789,
+        content=content,
+        offset=INCR_CHUNK_SIZE,  # Start at second chunk
+        start_time=0.0,
+    )
+
+    transfer_key = (mock_requestor.id, 123)
+    pending_incr_sends = {transfer_key: state}
+
+    send_incr_chunk(mock_display, state, transfer_key, pending_incr_sends)
+
+    # Verify second chunk was written
+    expected_chunk = content[INCR_CHUNK_SIZE:INCR_CHUNK_SIZE * 2]
+    mock_requestor.change_property.assert_called_once_with(
+        123,  # property_atom
+        456,  # target_atom
+        8,    # format
+        expected_chunk,
+    )
+
+    # Verify offset was updated to 2 * INCR_CHUNK_SIZE
+    assert state.offset == INCR_CHUNK_SIZE * 2
+
+    # Verify completion_sent is still False
+    assert state.completion_sent is False
+
+
+def test_send_incr_chunk_zero_length_completion() -> None:
+    """Test send_incr_chunk sends zero-length chunk when all content sent."""
+    from pclipsync.clipboard_selection import (
+        send_incr_chunk,
+        IncrSendState,
+        INCR_CHUNK_SIZE,
+    )
+    from unittest.mock import MagicMock
+
+    mock_display = MagicMock()
+    mock_requestor = MagicMock()
+    mock_requestor.id = 12345
+
+    content = b"x" * 100
+
+    # Set offset >= content length (all content already sent)
+    state = IncrSendState(
+        requestor=mock_requestor,
+        property_atom=123,
+        target_atom=456,
+        selection_atom=789,
+        content=content,
+        offset=100,  # All content sent
+        start_time=0.0,
+    )
+
+    transfer_key = (mock_requestor.id, 123)
+    pending_incr_sends = {transfer_key: state}
+
+    send_incr_chunk(mock_display, state, transfer_key, pending_incr_sends)
+
+    # Verify zero-length chunk was written
+    mock_requestor.change_property.assert_called_once_with(
+        123,  # property_atom
+        456,  # target_atom
+        8,    # format
+        b"",  # zero-length data
+    )
+
+    # Verify flush was called
+    mock_display.flush.assert_called_once()
+
+
+def test_send_incr_chunk_completion_sent_and_transfer_retained() -> None:
+    """Test that after zero-length write, completion_sent is True and transfer retained."""
+    from pclipsync.clipboard_selection import (
+        send_incr_chunk,
+        IncrSendState,
+    )
+    from unittest.mock import MagicMock
+
+    mock_display = MagicMock()
+    mock_requestor = MagicMock()
+    mock_requestor.id = 12345
+
+    content = b"x" * 100
+
+    # Set offset >= content length (triggers completion)
+    state = IncrSendState(
+        requestor=mock_requestor,
+        property_atom=123,
+        target_atom=456,
+        selection_atom=789,
+        content=content,
+        offset=100,
+        start_time=0.0,
+    )
+
+    transfer_key = (mock_requestor.id, 123)
+    pending_incr_sends = {transfer_key: state}
+
+    send_incr_chunk(mock_display, state, transfer_key, pending_incr_sends)
+
+    # Verify completion_sent is now True
+    assert state.completion_sent is True
+
+    # Verify transfer is still in pending_incr_sends (not removed yet)
+    assert transfer_key in pending_incr_sends
+
+    # Verify the state object is the same one
+    assert pending_incr_sends[transfer_key] is state
+
+
+def test_unsubscribe_incr_requestor_removes_transfer_and_unsubscribes() -> None:
+    """Test cleanup removes transfer and unsubscribes when last for window."""
+    from pclipsync.clipboard_selection import (
+        unsubscribe_incr_requestor,
+        IncrSendState,
+    )
+    from unittest.mock import MagicMock
+
+    mock_display = MagicMock()
+    mock_requestor = MagicMock()
+    mock_requestor.id = 12345
+
+    content = b"x" * 100
+
+    state = IncrSendState(
+        requestor=mock_requestor,
+        property_atom=123,
+        target_atom=456,
+        selection_atom=789,
+        content=content,
+        offset=100,
+        start_time=0.0,
+        completion_sent=True,  # Completion already sent
+    )
+
+    transfer_key = (mock_requestor.id, 123)
+    pending_incr_sends = {transfer_key: state}
+
+    # Call cleanup
+    unsubscribe_incr_requestor(mock_display, state, transfer_key, pending_incr_sends)
+
+    # Verify transfer was removed from pending_incr_sends
+    assert transfer_key not in pending_incr_sends
+    assert len(pending_incr_sends) == 0
+
+    # Verify unsubscribe was called (change_attributes with event_mask=0)
+    mock_requestor.change_attributes.assert_called_once_with(event_mask=0)
+
+    # Verify flush was called
+    mock_display.flush.assert_called_once()
+
+
+def test_unsubscribe_incr_requestor_concurrent_transfers() -> None:
+    """Test cleanup with two concurrent transfers to same requestor."""
+    from pclipsync.clipboard_selection import (
+        unsubscribe_incr_requestor,
+        IncrSendState,
+    )
+    from unittest.mock import MagicMock
+
+    mock_display = MagicMock()
+    mock_requestor = MagicMock()
+    mock_requestor.id = 12345
+
+    content = b"x" * 100
+
+    # Two transfers to same requestor, different properties
+    state1 = IncrSendState(
+        requestor=mock_requestor,
+        property_atom=123,
+        target_atom=456,
+        selection_atom=789,
+        content=content,
+        offset=100,
+        start_time=0.0,
+        completion_sent=True,
+    )
+    state2 = IncrSendState(
+        requestor=mock_requestor,
+        property_atom=124,  # Different property
+        target_atom=456,
+        selection_atom=789,
+        content=content,
+        offset=50,  # Not yet complete
+        start_time=0.0,
+        completion_sent=False,
+    )
+
+    transfer_key1 = (mock_requestor.id, 123)
+    transfer_key2 = (mock_requestor.id, 124)
+    pending_incr_sends = {transfer_key1: state1, transfer_key2: state2}
+
+    # Cleanup first transfer
+    unsubscribe_incr_requestor(mock_display, state1, transfer_key1, pending_incr_sends)
+
+    # Verify first transfer was removed
+    assert transfer_key1 not in pending_incr_sends
+    assert transfer_key2 in pending_incr_sends
+    assert len(pending_incr_sends) == 1
+
+    # Verify change_attributes was NOT called (other transfer still exists)
+    mock_requestor.change_attributes.assert_not_called()
+
+    # Now cleanup second (last) transfer
+    unsubscribe_incr_requestor(mock_display, state2, transfer_key2, pending_incr_sends)
+
+    # Verify second transfer was removed
+    assert transfer_key2 not in pending_incr_sends
+    assert len(pending_incr_sends) == 0
+
+    # Verify change_attributes WAS called (last transfer)
+    mock_requestor.change_attributes.assert_called_once_with(event_mask=0)

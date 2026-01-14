@@ -106,6 +106,38 @@ def unsubscribe_requestor_events(display: "Display", requestor: "Window") -> Non
     requestor.change_attributes(event_mask=0)
     display.flush()
 
+
+def unsubscribe_incr_requestor(
+    display: "Display",
+    state: IncrSendState,
+    transfer_key: tuple[int, int],
+    pending_incr_sends: dict[tuple[int, int], IncrSendState],
+) -> None:
+    """Unsubscribe from requestor events and remove transfer entry.
+
+    Checks if other INCR transfers exist for the same requestor window.
+    If this is the last transfer for the window, clears event masks.
+    Always removes the transfer entry from pending_incr_sends.
+
+    Args:
+        display: The X11 display connection.
+        state: The IncrSendState for this transfer.
+        transfer_key: The (requestor_id, property_atom) tuple identifying this transfer.
+        pending_incr_sends: Dict tracking in-progress INCR send transfers.
+    """
+    requestor_id = transfer_key[0]
+
+    # Count transfers for this requestor window
+    count = sum(1 for key in pending_incr_sends if key[0] == requestor_id)
+
+    if count == 1:
+        # This is the last transfer for the window - unsubscribe
+        unsubscribe_requestor_events(display, state.requestor)
+
+    # Remove the transfer entry
+    if transfer_key in pending_incr_sends:
+        del pending_incr_sends[transfer_key]
+
 def initiate_incr_send(
     display: "Display",
     event: "SelectionRequest",
@@ -188,6 +220,56 @@ def initiate_incr_send(
         display.flush()
         raise
 
+
+def send_incr_chunk(
+    display: "Display",
+    state: IncrSendState,
+    transfer_key: tuple[int, int],
+    pending_incr_sends: dict[tuple[int, int], IncrSendState],
+) -> None:
+    """Send the next chunk of an INCR transfer.
+
+    Calculates and sends the next chunk of content based on current offset.
+    If all content has been sent, writes a zero-length chunk to signal
+    completion. Updates the offset in state after sending.
+
+    Args:
+        display: The X11 display connection.
+        state: The IncrSendState for this transfer.
+        transfer_key: The (requestor_id, property_atom) tuple identifying this transfer.
+        pending_incr_sends: Dict tracking in-progress INCR send transfers.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    content_length = len(state.content)
+
+    if state.offset >= content_length:
+        # All real data was sent - write zero-length completion marker
+        state.requestor.change_property(
+            state.property_atom, state.target_atom, 8, b""
+        )
+        display.flush()
+        state.completion_sent = True
+        logger.debug("INCR send complete: requestor=%s property=%s",
+            transfer_key[0], transfer_key[1])
+        return
+
+    # Calculate next chunk
+    from pclipsync.clipboard_selection import INCR_CHUNK_SIZE
+    chunk_end = min(state.offset + INCR_CHUNK_SIZE, content_length)
+    chunk = state.content[state.offset:chunk_end]
+
+    # Write chunk to requestor's property
+    state.requestor.change_property(
+        state.property_atom, state.target_atom, 8, chunk
+    )
+    display.flush()
+
+    # Update offset
+    state.offset = chunk_end
+    logger.debug("INCR chunk sent: requestor=%s property=%s offset=%s/%s",
+        transfer_key[0], transfer_key[1], state.offset, content_length)
 def handle_selection_request(
     display: Display,
     event: SelectionRequest,
